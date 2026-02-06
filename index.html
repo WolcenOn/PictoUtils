@@ -2,7 +2,7 @@
 <html lang="es" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <title>Pictogramas y Tarjetas</title>
+  <title>Pictogramas y Tarjetas - ARASAAC</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Google Fonts (puedes dejar las tuyas) -->
@@ -86,6 +86,158 @@ html[data-theme="light"] body{
       box-shadow:var(--shadow);outline:2px solid var(--brand)
     }
     .visually-hidden{position:absolute!important;clip:rect(1px,1px,1px,1px)!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;border:0!important;overflow:hidden!important}
+
+
+    /* Modal de Términos ARASAAC */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      max-width: 600px;
+      width: 100%;
+      max-height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+      animation: slideUp 0.3s;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--stroke);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .modal-header img {
+      width: 80px;
+      height: auto;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.4rem;
+      flex: 1;
+    }
+
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-body h3 {
+      color: var(--brand);
+      margin-top: 20px;
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+
+    .modal-body p, .modal-body li {
+      line-height: 1.7;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .modal-body ul {
+      margin-left: 20px;
+    }
+
+    .modal-body a {
+      color: var(--brand2);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+
+    .modal-body a:hover {
+      border-bottom-color: var(--brand2);
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--stroke);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .modal-footer button {
+      min-width: 120px;
+    }
+
+    .btn-danger{
+      background: rgba(255, 90, 95, 0.15);
+      border-color: rgba(255, 90, 95, 0.3);
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .btn-danger:hover{ 
+      background: rgba(255, 90, 95, 0.25);
+    }
+
+    /* Indicador de resultados omitidos */
+    .omitted-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 165, 0, 0.15);
+      border: 1px solid rgba(255, 165, 0, 0.3);
+      border-radius: 10px;
+      color: #ffa500;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+
+    .omitted-indicator svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Color Picker Individual */
+    .color-preview-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      border: 2px solid var(--stroke);
+      cursor: pointer;
+      transition: transform 0.2s;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 10;
+    }
+
+    .color-preview-box:hover {
+      transform: scale(1.1);
+    }
 
     /* App Shell */
     .app{
@@ -691,6 +843,8 @@ html[data-theme="light"] .chip{
         </button>
 
         
+        
+        <button id="btnLibrary" class="btn-ghost" type="button" title="Biblioteca de conjuntos">📚 Biblioteca</button>
         <button id="uiThemeToggle" class="btn-ghost" type="button" title="Cambiar tema">🌙 Tema</button>
 
         <button id="uiWritingMode" class="btn-ghost" type="button" title="Modo escritura (pictogramas al escribir)">✍️ Escritura</button>
@@ -831,10 +985,25 @@ html[data-theme="light"] .chip{
                       <label for="langSelect">Idioma</label>
                       <select id="langSelect">
                         <option value="es">Español</option>
-                        <option value="en">Inglés</option>
-                        <option value="fr">Francés</option>
-                        <option value="pt">Portugués</option>
-                        <option value="de">Alemán</option>
+                        <option value="en">English</option>
+                        <option value="fr">Français</option>
+                        <option value="it">Italiano</option>
+                        <option value="de">Deutsch</option>
+                        <option value="pt">Português</option>
+                        <option value="ca">Català</option>
+                        <option value="eu">Euskara</option>
+                        <option value="gl">Galego</option>
+                        <option value="ar">العربية</option>
+                        <option value="zh">中文</option>
+                        <option value="he">עברית</option>
+                        <option value="ru">Русский</option>
+                        <option value="pl">Polski</option>
+                        <option value="nl">Nederlands</option>
+                        <option value="ro">Română</option>
+                        <option value="bg">Български</option>
+                        <option value="hr">Hrvatski</option>
+                        <option value="mk">Македонски</option>
+                        <option value="sq">Shqip</option>
                       </select>
                     </div>
 
@@ -4019,5 +4188,451 @@ $("btn-print-system").onclick = async ()=>{
 
 
 </script>
+
+<!-- Biblioteca de conjuntos (paquetes) -->
+<div id="libraryModal" style="
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483000;
+">
+  <div style="
+    width: min(980px, 92vw);
+    max-height: 88vh;
+    overflow: hidden;
+    background: var(--panel, #111);
+    border: 1px solid var(--stroke, rgba(255,255,255,.12));
+    border-radius: 18px;
+    box-shadow: var(--shadow, 0 18px 50px rgba(0,0,0,.45));
+    display: flex;
+    flex-direction: column;
+  ">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--stroke, rgba(255,255,255,.12));">
+      <div style="font-weight:800">📚 Biblioteca</div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <button id="libTabGallery" type="button" class="btn-mini" aria-pressed="true">Galería</button>
+        <button id="libTabCreate" type="button" class="btn-mini" aria-pressed="false">Crear</button>
+        <button id="libClose" type="button" class="btn-mini" title="Cerrar">✕</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0;flex:1;min-height:0;">
+      <!-- Panel Galería -->
+      <section id="libPanelGallery" style="flex:1;min-width:0;display:block;padding:14px 16px;overflow:auto;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+          <div style="min-width:220px;flex:1">
+            <label style="display:block;font-weight:700;margin-bottom:6px">Buscar</label>
+            <input id="libSearch" type="text" placeholder="Nombre, palabra clave..." style="width:100%" class="input"/>
+          </div>
+          <div style="min-width:200px">
+            <label style="display:block;font-weight:700;margin-bottom:6px">Categoría</label>
+            <input id="libDisorder" type="text" placeholder="Ej: Dislalias" style="width:100%" class="input"/>
+          </div>
+          <div style="min-width:200px">
+            <label style="display:block;font-weight:700;margin-bottom:6px">Palabra clave</label>
+            <input id="libTag" type="text" placeholder="Ej: /r/ 5 años" style="width:100%" class="input"/>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button id="libImportBtn" type="button" class="btn-ghost">Importar JSON</button>
+            <input id="libImportFile" type="file" accept="application/json" style="display:none"/>
+            <button id="libExportAllBtn" type="button" class="btn-ghost">Exportar biblioteca</button>
+          </div>
+        </div>
+
+        <div id="libGallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
+        <div id="libEmpty" style="opacity:.75;padding:12px;display:none">No hay conjuntos que coincidan con el filtro.</div>
+      </section>
+
+      <!-- Panel Crear -->
+      <section id="libPanelCreate" style="flex:1;min-width:0;display:none;padding:14px 16px;overflow:auto;">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+          <div>
+            <label style="display:block;font-weight:700;margin-bottom:6px">Nombre del conjunto</label>
+            <input id="libName" class="input" type="text" placeholder="Ej: Dislalias /r/ - inicial" style="width:100%"/>
+          </div>
+          <div>
+            <label style="display:block;font-weight:700;margin-bottom:6px">Categoría (trastorno/área)</label>
+            <input id="libCategory" class="input" type="text" placeholder="Ej: Dislalias" style="width:100%"/>
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-weight:700;margin-bottom:6px">Palabras clave (separadas por comas)</label>
+            <input id="libKeywords" class="input" type="text" placeholder="Ej: /r/, fonema, 5 años, intervención" style="width:100%"/>
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-weight:700;margin-bottom:6px">Lista de palabras (TXT)</label>
+            <textarea id="libWords" class="words-textarea" placeholder="Una por línea o separadas por espacios/comas..."></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button id="libLoadWordsFromMain" type="button" class="btn-ghost">Usar palabras actuales</button>
+              <button id="libPickTxt" type="button" class="btn-ghost">Cargar .txt</button>
+              <input id="libTxtFile" type="file" accept="text/plain" style="display:none"/>
+            </div>
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-weight:700;margin-bottom:6px">Config JSON (tarjetas/reglas)</label>
+            <textarea id="libConfigJson" class="words-textarea" placeholder='Se guardará como {"cfg":{...},"rules":[...]} o similar.'></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button id="libUseCurrentCfg" type="button" class="btn-ghost">Usar configuración actual</button>
+              <button id="libSavePack" type="button" class="btn-primary">Guardar conjunto</button>
+            </div>
+            <p style="opacity:.75;margin:8px 0 0 0">Consejo: “Usar configuración actual” crea el JSON automáticamente con tus opciones y reglas actuales.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+
+<script>
+(function(){
+  const LS_KEY = "pictoprinter_library_v1";
+
+  const $id = (id)=>document.getElementById(id);
+
+  function readLibrary(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    }catch(e){ return []; }
+  }
+  function writeLibrary(arr){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }catch(e){}
+  }
+  function uid(){
+    return "pk_" + Math.random().toString(36).slice(2) + "_" + Date.now().toString(36);
+  }
+  function nowIso(){
+    try{ return new Date().toISOString(); }catch(e){ return ""; }
+  }
+  function norm(s){ return (s||"").toString().trim(); }
+  function splitKeywords(s){
+    return norm(s).split(",").map(x=>x.trim()).filter(Boolean);
+  }
+  function matchesPack(p, q, cat, tag){
+    const qq = norm(q).toLowerCase();
+    const cc = norm(cat).toLowerCase();
+    const tt = norm(tag).toLowerCase();
+    const hay = [
+      p.name, p.category, (p.keywords||[]).join(" "), (p.words||""), (p.description||"")
+    ].join(" ").toLowerCase();
+
+    if(qq && !hay.includes(qq)) return false;
+    if(cc && !norm(p.category).toLowerCase().includes(cc)) return false;
+    if(tt){
+      const kw = (p.keywords||[]).join(" ").toLowerCase();
+      if(!kw.includes(tt)) return false;
+    }
+    return true;
+  }
+
+  // Aplica un objeto {cfg, rules} a la app sin usar File
+  function applyFullConfigData(data){
+    try{
+      if(!data || typeof data !== "object") return;
+      if(data.cfg && typeof data.cfg === "object"){
+        cfg = { ...cfg, ...data.cfg };
+        saveCfg();
+      }
+      if(Array.isArray(data.rules)){
+        rules = data.rules.map(x=>({
+          id: x.id || genId(),
+          input: canon(x.input||""),
+          lang: x.lang||"*",
+          preferred: x.preferred||"",
+          fallbacks: Array.isArray(x.fallbacks)?x.fallbacks.filter(Boolean):[],
+          note: x.note||""
+        }));
+        saveRules();
+      }
+      ensureExternalFontsLoaded();
+      syncUI(); applyResultSize(); updateFitInfo();
+      renderRulesList(); renderAll(); showPrintPreview();
+    }catch(e){
+      console.warn("No se pudo aplicar config:", e);
+    }
+  }
+
+  // Abre/cierra modal
+  function openLibrary(){
+    const m = $id("libraryModal");
+    if(m) m.style.display = "flex";
+    renderGallery();
+  }
+  function closeLibrary(){
+    const m = $id("libraryModal");
+    if(m) m.style.display = "none";
+  }
+
+  // Tabs
+  function setTab(which){
+    const g = $id("libPanelGallery");
+    const c = $id("libPanelCreate");
+    const bG = $id("libTabGallery");
+    const bC = $id("libTabCreate");
+    if(which==="create"){
+      g.style.display="none"; c.style.display="block";
+      bG.setAttribute("aria-pressed","false");
+      bC.setAttribute("aria-pressed","true");
+    }else{
+      g.style.display="block"; c.style.display="none";
+      bG.setAttribute("aria-pressed","true");
+      bC.setAttribute("aria-pressed","false");
+      renderGallery();
+    }
+  }
+
+  // Render gallery cards
+  function renderGallery(){
+    const cont = $id("libGallery");
+    const empty = $id("libEmpty");
+    if(!cont) return;
+    const packs = readLibrary();
+
+    const q = $id("libSearch")?.value || "";
+    const cat = $id("libDisorder")?.value || "";
+    const tag = $id("libTag")?.value || "";
+
+    const filtered = packs.filter(p=>matchesPack(p,q,cat,tag)).sort((a,b)=> (b.updatedAt||b.createdAt||"").localeCompare(a.updatedAt||a.createdAt||""));
+    cont.innerHTML = "";
+    if(filtered.length===0){
+      empty.style.display="block";
+      return;
+    }
+    empty.style.display="none";
+
+    for(const p of filtered){
+      const card = document.createElement("div");
+      card.className = "chip";
+      card.style.display="flex";
+      card.style.flexDirection="column";
+      card.style.gap="8px";
+      card.style.alignItems="stretch";
+
+      const title = document.createElement("div");
+      title.style.fontWeight="800";
+      title.textContent = p.name || "(Sin nombre)";
+
+      const meta = document.createElement("div");
+      meta.style.opacity=".85";
+      meta.style.fontSize="13px";
+      const kws = (p.keywords||[]).slice(0,6).join(" • ");
+      meta.innerHTML = `
+        <div><strong>Categoría:</strong> ${p.category ? escapeHtml(p.category) : "-"}</div>
+        <div><strong>Palabras:</strong> ${countWords(p.words||"")} </div>
+        <div><strong>Claves:</strong> ${kws ? escapeHtml(kws) : "-"}</div>
+      `;
+
+      const actions = document.createElement("div");
+      actions.style.display="flex";
+      actions.style.gap="8px";
+      actions.style.flexWrap="wrap";
+
+      const btnLoad = document.createElement("button");
+      btnLoad.type="button";
+      btnLoad.className="btn-primary";
+      btnLoad.textContent="Usar este conjunto";
+      btnLoad.onclick = ()=>{
+        // 1) Cargar palabras en el input principal
+        const ta = $id("input-words");
+        if(ta) ta.value = p.words || "";
+        // 2) Aplicar config
+        if(p.config && typeof p.config === "object"){
+          applyFullConfigData(p.config);
+        }else if(p.configText){
+          try{ applyFullConfigData(JSON.parse(p.configText)); }catch(e){}
+        }
+        closeLibrary();
+        // 3) Opcional: hacer foco en buscar
+        try{ $id("btn-search")?.focus(); }catch(e){}
+      };
+
+      const btnExport = document.createElement("button");
+      btnExport.type="button";
+      btnExport.className="btn-ghost";
+      btnExport.textContent="Exportar";
+      btnExport.onclick = ()=>downloadJson(p);
+
+      const btnDelete = document.createElement("button");
+      btnDelete.type="button";
+      btnDelete.className="btn-ghost";
+      btnDelete.textContent="Borrar";
+      btnDelete.onclick = ()=>{
+        const all = readLibrary().filter(x=>x.id!==p.id);
+        writeLibrary(all);
+        renderGallery();
+      };
+
+      actions.append(btnLoad, btnExport, btnDelete);
+
+      card.append(title, meta, actions);
+      cont.appendChild(card);
+    }
+  }
+
+  function escapeHtml(s){
+    return (s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+  function countWords(s){
+    const cleaned = (s||"").replace(/\s+/g," ").trim();
+    if(!cleaned) return 0;
+    // Split by spaces/commas/semicolons/newlines
+    return cleaned.split(/[\s,;]+/).filter(Boolean).length;
+  }
+
+  function downloadJson(obj){
+    const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (obj.name ? obj.name.replace(/[^a-z0-9\-_]+/gi,"_") : "conjunto") + ".json";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+  }
+
+  function exportAllLibrary(){
+    const all = readLibrary();
+    const blob = new Blob([JSON.stringify(all, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "biblioteca_pictoprinter.json";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+  }
+
+  // Create pack
+  function savePack(){
+    const name = norm($id("libName")?.value);
+    const category = norm($id("libCategory")?.value);
+    const keywords = splitKeywords($id("libKeywords")?.value);
+    const words = ($id("libWords")?.value || "").toString();
+    const configText = ($id("libConfigJson")?.value || "").toString().trim();
+
+    if(!name){
+      alert("Pon un nombre para el conjunto.");
+      return;
+    }
+    if(!words.trim()){
+      alert("Añade una lista de palabras.");
+      return;
+    }
+    let configObj = null;
+    if(configText){
+      try{
+        configObj = JSON.parse(configText);
+      }catch(e){
+        alert("El JSON de configuración no es válido.");
+        return;
+      }
+    }
+
+    const all = readLibrary();
+    const pack = {
+      id: uid(),
+      name,
+      category,
+      keywords,
+      words,
+      config: configObj,
+      configText: configObj ? "" : configText,
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    all.push(pack);
+    writeLibrary(all);
+
+    // Limpia
+    $id("libName").value = "";
+    $id("libCategory").value = "";
+    $id("libKeywords").value = "";
+    // No borro words/config para que puedas guardar variantes rápido si quieres
+    setTab("gallery");
+  }
+
+  function useCurrentCfg(){
+    try{
+      const payload = { cfg: cfg, rules: rules };
+      $id("libConfigJson").value = JSON.stringify(payload, null, 2);
+    }catch(e){
+      alert("No se pudo capturar la configuración actual.");
+    }
+  }
+
+  function loadWordsFromMain(){
+    const ta = $id("input-words");
+    if(ta) $id("libWords").value = ta.value || "";
+  }
+
+  async function importTxtFile(file){
+    try{
+      const tx = await file.text();
+      $id("libWords").value = tx;
+    }catch(e){
+      alert("No se pudo leer el TXT.");
+    }
+  }
+
+  async function importJsonFile(file){
+    try{
+      const tx = await file.text();
+      const data = JSON.parse(tx);
+      const all = readLibrary();
+      if(Array.isArray(data)){
+        for(const p of data){
+          if(p && typeof p === "object") all.push(p);
+        }
+      }else if(data && typeof data === "object"){
+        all.push(data);
+      }
+      writeLibrary(all);
+      renderGallery();
+    }catch(e){
+      alert("No se pudo importar el JSON.");
+    }
+  }
+
+  // Hook UI
+  function hook(){
+    // Button in top bar
+    const btn = $id("btnLibrary");
+    if(btn) btn.addEventListener("click", openLibrary);
+
+    $id("libClose")?.addEventListener("click", closeLibrary);
+    $id("libraryModal")?.addEventListener("click", (e)=>{ if(e.target === $id("libraryModal")) closeLibrary(); });
+
+    $id("libTabGallery")?.addEventListener("click", ()=>setTab("gallery"));
+    $id("libTabCreate")?.addEventListener("click", ()=>setTab("create"));
+
+    // Filters
+    ["libSearch","libDisorder","libTag"].forEach(id=>{
+      $id(id)?.addEventListener("input", renderGallery);
+    });
+
+    $id("libUseCurrentCfg")?.addEventListener("click", useCurrentCfg);
+    $id("libLoadWordsFromMain")?.addEventListener("click", loadWordsFromMain);
+    $id("libSavePack")?.addEventListener("click", savePack);
+
+    $id("libPickTxt")?.addEventListener("click", ()=> $id("libTxtFile").click());
+    $id("libTxtFile")?.addEventListener("change", (e)=>{ const f=e.target.files?.[0]; if(f) importTxtFile(f); e.target.value=""; });
+
+    $id("libImportBtn")?.addEventListener("click", ()=> $id("libImportFile").click());
+    $id("libImportFile")?.addEventListener("change", (e)=>{ const f=e.target.files?.[0]; if(f) importJsonFile(f); e.target.value=""; });
+
+    $id("libExportAllBtn")?.addEventListener("click", exportAllLibrary);
+  }
+
+  // Espera a que la app inicialice sus helpers (cfg, rules, etc.)
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", hook);
+  }else{
+    hook();
+  }
+})();
+</script>
+
 </body>
 </html>
