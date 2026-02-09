@@ -419,6 +419,56 @@ externalFonts:[],
     return _arasaacLogoBmpPromise;
   }
 
+  const FITZGERALD_COLORS = [
+    { label: "Fitzgerald · Sustantivo (naranja)", value: "#e67e22" },
+    { label: "Fitzgerald · Verbo (verde)", value: "#2ecc71" },
+    { label: "Fitzgerald · Adjetivo (azul)", value: "#2471a3" },
+    { label: "Fitzgerald · Pronombre (morado)", value: "#6c3483" },
+    { label: "Fitzgerald · Adverbio (amarillo)", value: "#f4d03f" },
+  ];
+
+  function getItemBgColor(item){
+    if(item?.bgOverride?.mode === "manual") return item.bgOverride.value || cfg.bgColor;
+    if(item?.bgOverride?.mode === "fitzgerald") return item.bgOverride.value || cfg.bgColor;
+    return cfg.bgColor || "#ffffff";
+  }
+
+  function drawTenseMarker(ctx, item, width, height, borderPx){
+    const mode = item?.tenseOverride || "none";
+    if(mode === "none") return;
+    const inset = Math.max(4, Math.round((borderPx || 0) + 4));
+    const size = Math.max(12, Math.round(Math.min(width, height) * 0.12));
+    const color = "#111";
+    const x = mode === "past" ? inset : width - inset - size;
+    const y = inset;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, Math.round(size * 0.12));
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    const midY = y + size * 0.5;
+    ctx.beginPath();
+    if(mode === "past"){
+      const startX = x + size;
+      ctx.moveTo(startX, midY);
+      ctx.lineTo(x + size * 0.2, midY);
+      ctx.moveTo(x + size * 0.2, midY);
+      ctx.lineTo(x + size * 0.45, y + size * 0.25);
+      ctx.moveTo(x + size * 0.2, midY);
+      ctx.lineTo(x + size * 0.45, y + size * 0.75);
+    }else{
+      const startX = x;
+      ctx.moveTo(startX, midY);
+      ctx.lineTo(x + size * 0.8, midY);
+      ctx.moveTo(x + size * 0.8, midY);
+      ctx.lineTo(x + size * 0.55, y + size * 0.25);
+      ctx.moveTo(x + size * 0.8, midY);
+      ctx.lineTo(x + size * 0.55, y + size * 0.75);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   async function canvasBlob({url,word,picto,item,drawBorder=true,drawWord=true,drawLines=true}){
     const bmp=await createImageBitmap(await (await fetch(url)).blob());
     const m=20;
@@ -444,7 +494,7 @@ externalFonts:[],
     cv.height=bmp.height+extra+m*2;
     const ctx=cv.getContext("2d",{alpha:true});
 
-    ctx.fillStyle=cfg.bgColor;
+    ctx.fillStyle=getItemBgColor(item);
     ctx.fillRect(0,0,cv.width,cv.height);
 
     if(drawBorder){
@@ -525,6 +575,10 @@ externalFonts:[],
       }
     }
 
+    const bwMm = (typeof cfg.borderWidthMm!=="undefined") ? (parseFloat(cfg.borderWidthMm)||0) : 0;
+    const bwPx = bwMm * MM_TO_PX;
+    drawTenseMarker(ctx, item, cv.width, cv.height, bwPx);
+
     if(drawLinesEffective){
       const y1=m+bmp.height+2,y2=y1+cfg.linesDistance;
       ctx.lineWidth=2;ctx.strokeStyle="#000";
@@ -551,7 +605,7 @@ externalFonts:[],
   async function textCardURL(word="", item, drawBorder=true){
     const w=500,h=300,cv=document.createElement("canvas");cv.width=w;cv.height=h;
     const ctx=cv.getContext("2d",{alpha:true});
-    ctx.fillStyle=cfg.bgColor;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle=getItemBgColor(item);ctx.fillRect(0,0,w,h);
     if(drawBorder){
       const bwMm = (typeof cfg.borderWidthMm!=="undefined") ? (parseFloat(cfg.borderWidthMm)||0) : 0;
       const bw = bwMm * MM_TO_PX;
@@ -563,6 +617,9 @@ externalFonts:[],
         ctx.strokeRect(inset, inset, cv.width - bw, cv.height - bw);
       }
     }
+    const bwMm = (typeof cfg.borderWidthMm!=="undefined") ? (parseFloat(cfg.borderWidthMm)||0) : 0;
+    const bwPx = bwMm * MM_TO_PX;
+    drawTenseMarker(ctx, item, w, h, bwPx);
     if(cfg.writeLinesMode){
       const y1=h/2-10,y2=y1+cfg.linesDistance;ctx.lineWidth=3;ctx.strokeStyle="#000";
       ctx.beginPath();ctx.moveTo(40,y1);ctx.lineTo(w-40,y1);
@@ -1223,7 +1280,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
   }
 
   async function buildDownload(it){
-    const cur  = it.pictograms[cur];
+    const cur  = it.pictograms[it.current];
     const word = displayWord(it.word);
     let blob;
     if (cfg.modeTextOnly || typeof cur !== 'object'){
@@ -1290,17 +1347,81 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     return wrap;
   }
 
+  function buildBackgroundControls(it, onChange){
+    const wrap = document.createElement("div"); wrap.className = "row"; wrap.style.marginTop = "6px";
+    const lbl = document.createElement("label"); lbl.textContent = "Fondo:"; lbl.style.fontWeight = "600";
+    const sel = document.createElement("select");
+    sel.innerHTML = `
+      <option value="global">Global</option>
+      ${FITZGERALD_COLORS.map(c=>`<option value="fitz:${c.value}">${c.label}</option>`).join("")}
+      <option value="manual">Color manual…</option>
+    `;
+    sel.style.minWidth = "180px";
+    const picker = document.createElement("input");
+    picker.type = "color";
+    picker.value = it.bgOverride?.mode === "manual" ? (it.bgOverride.value || cfg.bgColor || "#ffffff") : (cfg.bgColor || "#ffffff");
+    picker.style.height = "36px";
+    picker.style.display = (it.bgOverride?.mode === "manual") ? "" : "none";
+    picker.addEventListener("change", ()=>{
+      it.bgOverride = { mode:"manual", value: picker.value }; onChange();
+    });
+
+    if (!it.bgOverride || it.bgOverride.mode === "global"){
+      sel.value = "global";
+    }else if (it.bgOverride.mode === "manual"){
+      sel.value = "manual";
+    }else if (it.bgOverride.mode === "fitzgerald"){
+      sel.value = `fitz:${it.bgOverride.value}`;
+    }else{
+      sel.value = "global";
+    }
+
+    sel.addEventListener("change", ()=>{
+      const v = sel.value;
+      if (v === "global"){ it.bgOverride = { mode:"global" }; picker.style.display="none"; }
+      else if (v === "manual"){ it.bgOverride = { mode:"manual", value: picker.value || cfg.bgColor || "#ffffff" }; picker.style.display=""; }
+      else if (v.startsWith("fitz:")){ it.bgOverride = { mode:"fitzgerald", value: v.split(":")[1] }; picker.style.display="none"; }
+      onChange();
+    });
+
+    wrap.append(lbl, sel, picker);
+    return wrap;
+  }
+
+  function buildTenseControls(it, onChange){
+    const wrap = document.createElement("div"); wrap.className = "row"; wrap.style.marginTop = "6px";
+    const lbl = document.createElement("label"); lbl.textContent = "Tiempo:"; lbl.style.fontWeight = "600";
+    const sel = document.createElement("select");
+    sel.innerHTML = `
+      <option value="none">Sin marca</option>
+      <option value="past">Pasado (⬅)</option>
+      <option value="future">Futuro (➡)</option>
+    `;
+    sel.style.minWidth = "160px";
+    sel.value = it.tenseOverride || "none";
+    sel.addEventListener("change", ()=>{
+      it.tenseOverride = sel.value || "none";
+      onChange();
+    });
+    wrap.append(lbl, sel);
+    return wrap;
+  }
+
   function renderItem(el,obj){
     el.setAttribute("role","listitem");
     el.innerHTML="";
     const nav=document.createElement("div");nav.className="arrows-container";
     const l=document.createElement("button");l.textContent="◀";l.className="arrow-btn";l.type="button";l.ariaLabel="Anterior pictograma";
-    const d=document.createElement("button");d.textContent="⬇";d.title="Descargar PNG";d.className="arrow-btn";d.type="button";d.ariaLabel="Descargar PNG";
     const r=document.createElement("button");r.textContent="▶";r.className="arrow-btn";r.type="button";r.ariaLabel="Siguiente pictograma";
-    nav.append(l,d,r);
+    const bgControl = buildBackgroundControls(obj, ()=>{ draw().then(showPrintPreview); });
+    bgControl.classList.add("result-control");
+    nav.append(l,bgControl,r);
     const img=document.createElement("img");img.className="pic-image";img.alt="";
     const cap=document.createElement("p");cap.className="word-text";
     const controls = buildBorderControls(obj, ()=>{ draw().then(showPrintPreview); });
+    const tenseControls = buildTenseControls(obj, ()=>{ draw().then(showPrintPreview); });
+    const tenseMarker = document.createElement("span");
+    tenseMarker.className = "tense-marker";
 
     async function draw(){
       const cur=obj.pictograms[obj.current]; const isTxt=typeof cur!=="object";
@@ -1336,19 +1457,38 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       const curPic = isTxt? null : cur;
       const col = effectiveBorderColor(word, curPic, obj);
       el.style.borderColor = col;
+      el.style.background = getItemBgColor(obj);
+      const borderPx = Math.max(0, (parseFloat(cfg.borderWidthMm) || 0) * MM_TO_PX);
+      const inset = Math.max(4, Math.round(borderPx + 4));
+      if(obj.tenseOverride === "past"){
+        tenseMarker.textContent = "⬅";
+        tenseMarker.dataset.position = "left";
+        tenseMarker.style.left = `${inset}px`;
+        tenseMarker.style.right = "auto";
+        tenseMarker.style.top = `${inset}px`;
+        tenseMarker.style.display = "inline-flex";
+      }else if(obj.tenseOverride === "future"){
+        tenseMarker.textContent = "➡";
+        tenseMarker.dataset.position = "right";
+        tenseMarker.style.right = `${inset}px`;
+        tenseMarker.style.left = "auto";
+        tenseMarker.style.top = `${inset}px`;
+        tenseMarker.style.display = "inline-flex";
+      }else{
+        tenseMarker.style.display = "none";
+      }
       l.disabled=obj.current===0; r.disabled=obj.current===obj.pictograms.length-1;
     }
 
     l.onclick=()=>{if(obj.current>0){obj.current--;draw().then(showPrintPreview);}};
     r.onclick=()=>{if(obj.current<obj.pictograms.length-1){obj.current++;draw().then(showPrintPreview);}};
-    d.onclick=()=>buildDownload(obj);
 
     nav.addEventListener('keydown', (e)=>{
       if(e.key==="ArrowLeft"){e.preventDefault();l.click();}
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav,img,cap,controls); draw();
+    el.append(nav,tenseMarker,img,cap,controls,tenseControls); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;
@@ -1415,10 +1555,6 @@ async function showPrintPreview(){
   const innerW = pv.width  - 2*Mpx;
   const innerH = pv.height - 2*Mpx;
 
-  // Fondo de la tarjeta (color de fondo configurado)
-  ctx.fillStyle = cfg.bgColor || "#ffffff";
-  ctx.fillRect(innerX, innerY, innerW, innerH);
-
   // =========================================================
   // 5) BORDE (ancho en mm + color auto/manual)
   // =========================================================
@@ -1426,6 +1562,10 @@ async function showPrintPreview(){
   const it0 = items?.[0] || null;
   const cur0 = it0 ? it0.pictograms?.[it0.current] : null;
   const word0 = it0 ? displayWord(it0.word || "") : "";
+
+  // Fondo de la tarjeta (color de fondo configurado)
+  ctx.fillStyle = getItemBgColor(it0);
+  ctx.fillRect(innerX, innerY, innerW, innerH);
 
   const bwMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
   const bwPx = bwMm * pxPerMm;
@@ -1447,6 +1587,8 @@ async function showPrintPreview(){
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5,0.5,pv.width-1,pv.height-1);
   }
+
+  drawTenseMarker(ctx, it0, pv.width, pv.height, bwPx);
 
   // Si no hay resultados aún, no podemos dibujar pictograma/texto real.
   if(!items || !items.length){
@@ -1949,9 +2091,9 @@ const live=$("resultados-hint");
           const cell=document.createElement("div"); cell.className="grid-item"; cont.appendChild(cell);
           try{
             const pics = await searchWithResolution(raw, w, cfg.lang);
-            items.push({pictograms:pics,current:0,word:w, borderOverride:{mode:"auto"}});
+            items.push({pictograms:pics,current:0,word:w, borderOverride:{mode:"auto"}, bgOverride:{mode:"global"}, tenseOverride:"none"});
           }catch{
-            items.push({pictograms:["TEXTO"],current:0,word:w, borderOverride:{mode:"auto"}});
+            items.push({pictograms:["TEXTO"],current:0,word:w, borderOverride:{mode:"auto"}, bgOverride:{mode:"global"}, tenseOverride:"none"});
           }
           renderItem(cell,items[items.length-1]);
 }
@@ -2032,6 +2174,8 @@ async function renderCardCanvasForMm(item){
     const inset = ctx.lineWidth/2;
     ctx.strokeRect(inset, inset, W - ctx.lineWidth, H - ctx.lineWidth);
   }
+
+  drawTenseMarker(ctx, item, W, H, bwPx);
 
   // Si no hay item, devuelve el lienzo “vacío”
   if(!item) return c;

@@ -582,6 +582,7 @@ html[data-theme="light"] body{
       margin-top: 12px;
     }
     .grid-item{
+      position: relative;
       border:1px solid rgba(255,255,255,.10);
       padding: 12px;
       text-align:center;
@@ -614,6 +615,30 @@ html[data-theme="light"] body{
       font-weight: var(--card-font-weight);
       overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
       font-family: var(--card-font);
+    }
+    .result-control{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .result-control select{
+      min-height: 38px;
+    }
+    .tense-marker{
+      position:absolute;
+      top:8px;
+      font-size:18px;
+      font-weight:700;
+      color:#111;
+      background: rgba(255,255,255,.75);
+      border-radius: 999px;
+      padding: 4px 8px;
+      line-height: 1;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+      display:none;
+      z-index: 2;
     }
 
     /* Tabla reglas */
