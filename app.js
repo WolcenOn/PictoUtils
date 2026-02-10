@@ -684,7 +684,7 @@ externalFonts:[],
     const cont = $("grid-container");
     if(!cont) return;
     const v = cfg.resultCardSize || "md";
-    const px = (v==="sm") ? 150 : (v==="lg" ? 210 : 170);
+    const px = (v==="sm") ? 120 : (v==="lg" ? 160 : 140);
     cont.style.setProperty("--card-min", px + "px");
   }
 
@@ -1190,7 +1190,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const sel = $("resultSizeSelect");
     if(!sel) return;
     const v = sel.value || "md";
-    const map = { xs:140, sm:150, md:170, lg:210 }; // min card width in px
+    const map = { xs:110, sm:120, md:140, lg:160 }; // min card width in px
     const min = map[v] || 100;
     document.documentElement.style.setProperty('--card-min', min + "px");
   }
@@ -1457,24 +1457,6 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     return wrap;
   }
 
-  function buildCardOptionsMenu(obj, onChange){
-    const details = document.createElement("details");
-    details.className = "card-options-menu";
-    const summary = document.createElement("summary");
-    summary.className = "card-options-summary";
-    summary.textContent = "⚙️ Opciones";
-
-    const panel = document.createElement("div");
-    panel.className = "card-options-panel";
-    panel.append(
-      buildBorderControls(obj, onChange),
-      buildBackgroundControls(obj, onChange),
-      buildTenseControls(obj, onChange)
-    );
-    details.append(summary, panel);
-    return details;
-  }
-
   function renderItem(el,obj){
     el.setAttribute("role","listitem");
     el.innerHTML="";
@@ -1485,7 +1467,42 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     nav.append(l,r);
     const img=document.createElement("img");img.className="pic-image";img.alt="";
     const cap=document.createElement("p");cap.className="word-text";
-    const optionsMenu = buildCardOptionsMenu(obj, ()=>{ draw().then(showPrintPreview); });
+    const tenseControls = buildTenseControls(obj, ()=>{ draw().then(showPrintPreview); });
+    const borderControl = buildBorderControls(obj, ()=>{ draw().then(showPrintPreview); });
+    const colorActions = document.createElement("div");
+    colorActions.className = "card-color-actions";
+    const btnBorder = document.createElement("button");
+    btnBorder.type = "button";
+    btnBorder.className = "result-btn";
+    btnBorder.textContent = "Borde";
+    const btnBg = document.createElement("button");
+    btnBg.type = "button";
+    btnBg.className = "result-btn";
+    btnBg.textContent = "Fondo";
+    colorActions.append(btnBorder, btnBg);
+
+    const colorPanels = document.createElement("div");
+    colorPanels.className = "card-color-panels";
+    borderControl.classList.add("card-color-panel");
+    bgControl.classList.add("card-color-panel");
+    borderControl.hidden = true;
+    bgControl.hidden = true;
+    colorPanels.append(borderControl, bgControl);
+
+    btnBorder.addEventListener("click", ()=>{
+      const open = borderControl.hidden;
+      borderControl.hidden = !open;
+      bgControl.hidden = true;
+      btnBorder.classList.toggle("active", open);
+      btnBg.classList.remove("active");
+    });
+    btnBg.addEventListener("click", ()=>{
+      const open = bgControl.hidden;
+      bgControl.hidden = !open;
+      borderControl.hidden = true;
+      btnBg.classList.toggle("active", open);
+      btnBorder.classList.remove("active");
+    });
     const tenseMarker = document.createElement("span");
     tenseMarker.className = "tense-marker";
 
@@ -1514,12 +1531,10 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
             `<div style='height:${cfg.linesDistance}px'></div>`+
             `<div style='border-bottom:2px solid #000;width:92%;margin:0 auto'></div>`;
           cap.style.display="block";
-        }else if(cfg.fontSize===0){
-          cap.textContent = word;
-          cap.style.display="block";
-          cap.style.fontSize="0.95rem";
         }else{
-          cap.textContent=word;cap.style.display="block";cap.style.fontSize="1.05rem";
+          cap.textContent = word;
+          cap.style.display = "block";
+          cap.style.fontSize = (cfg.fontSize===0) ? "0.95rem" : "1.02rem";
         }
       }
       const curPic = isTxt? null : cur;
@@ -1561,7 +1576,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav,tenseMarker,img,cap,optionsMenu); draw();
+    el.append(nav, tenseControls, tenseMarker, img, cap, colorActions, colorPanels); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;
