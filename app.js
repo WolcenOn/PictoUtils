@@ -1412,56 +1412,27 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
   }
 
   function buildTenseControls(it, onChange){
-    const tpl = $("result-card-controls-template");
-    const fragment = tpl?.content ? tpl.content.cloneNode(true) : null;
-    const wrap = fragment?.querySelector?.(".result-control--tense") || document.createElement("div");
-    if(!wrap.classList.contains("result-control--tense")){
-      wrap.className = "result-control result-control--tense";
-      const lblFallback = document.createElement("span");
-      lblFallback.className = "result-control-label";
-      lblFallback.textContent = "Tiempo:";
-      const groupFallback = document.createElement("div");
-      groupFallback.className = "result-btn-group";
-      groupFallback.dataset.role = "tense-options";
-      wrap.append(lblFallback, groupFallback);
-    }
-    let group = wrap.querySelector('[data-role="tense-options"]');
-    if(!group){
-      group = document.createElement("div");
-      group.className = "result-btn-group";
-      group.dataset.role = "tense-options";
-      wrap.append(group);
-    }
-    group.innerHTML = "";
-    const options = [
-      { key:"none", text:"Sin marca" },
-      { key:"past", text:"⬅ Pasado" },
-      { key:"future", text:"Futuro ➡" }
-    ];
-    const buttons = options.map((op)=>{
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "result-btn";
-      b.textContent = op.text;
-      b.dataset.value = op.key;
-      b.addEventListener("click", ()=>{
-        it.tenseOverride = op.key;
-        buttons.forEach((btn)=>{
-          const active = btn.dataset.value === op.key;
-          btn.classList.toggle("active", active);
-          btn.setAttribute("aria-pressed", active ? "true" : "false");
-        });
-        onChange();
-      });
-      return b;
+    const wrap = document.createElement("div");
+    wrap.className = "result-control result-control--tense";
+
+    const lbl = document.createElement("span");
+    lbl.className = "result-control-label";
+    lbl.textContent = "Tiempo:";
+
+    const sel = document.createElement("select");
+    sel.className = "result-select";
+    sel.innerHTML = `
+      <option value="none">Sin marca</option>
+      <option value="past">⬅ Pasado</option>
+      <option value="future">Futuro ➡</option>
+    `;
+    sel.value = it.tenseOverride || "none";
+    sel.addEventListener("change", ()=>{
+      it.tenseOverride = sel.value || "none";
+      onChange();
     });
-    const current = it.tenseOverride || "none";
-    buttons.forEach((btn)=>{
-      const active = btn.dataset.value === current;
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-pressed", active ? "true" : "false");
-      group.append(btn);
-    });
+
+    wrap.append(lbl, sel);
     return wrap;
   }
 
@@ -1534,6 +1505,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
         tenseMarker.style.display = "inline-flex";
         tenseMarker.style.fontSize = "24px";
       }else{
+        tenseMarker.textContent = "";
         tenseMarker.style.display = "none";
       }
       l.disabled=obj.current===0; r.disabled=obj.current===obj.pictograms.length-1;
