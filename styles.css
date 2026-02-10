@@ -622,9 +622,52 @@ html[data-theme="light"] body{
       gap:8px;
       flex-wrap:wrap;
       justify-content:center;
+      margin-top: 6px;
     }
-    .result-control select{
-      min-height: 38px;
+    .result-control-label{
+      font-weight: 600;
+      color: var(--text);
+    }
+    .result-btn-group{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .result-btn{
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 6px 9px;
+      min-height: 34px;
+      font-size: .88rem;
+    }
+    .result-btn.active{
+      background: rgba(99,102,241,.25);
+      border-color: rgba(129,140,248,.8);
+      box-shadow: 0 0 0 1px rgba(99,102,241,.2) inset;
+    }
+    .result-palette{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .color-swatch{
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.55);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+    }
+    .color-swatch.active{
+      box-shadow: 0 0 0 2px rgba(99,102,241,.7);
+      transform: scale(1.06);
+    }
+    .result-color-picker{
+      height: 34px;
+      width: 48px;
     }
     .tense-marker{
       position:absolute;

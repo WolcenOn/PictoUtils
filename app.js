@@ -1348,62 +1348,146 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
   }
 
   function buildBackgroundControls(it, onChange){
-    const wrap = document.createElement("div"); wrap.className = "row"; wrap.style.marginTop = "6px";
-    const lbl = document.createElement("label"); lbl.textContent = "Fondo:"; lbl.style.fontWeight = "600";
-    const sel = document.createElement("select");
-    sel.innerHTML = `
-      <option value="global">Global</option>
-      ${FITZGERALD_COLORS.map(c=>`<option value="fitz:${c.value}">${c.label}</option>`).join("")}
-      <option value="manual">Color manual…</option>
-    `;
-    sel.style.minWidth = "180px";
-    const picker = document.createElement("input");
-    picker.type = "color";
-    picker.value = it.bgOverride?.mode === "manual" ? (it.bgOverride.value || cfg.bgColor || "#ffffff") : (cfg.bgColor || "#ffffff");
-    picker.style.height = "36px";
-    picker.style.display = (it.bgOverride?.mode === "manual") ? "" : "none";
-    picker.addEventListener("change", ()=>{
-      it.bgOverride = { mode:"manual", value: picker.value }; onChange();
+    const tpl = $("result-card-controls-template");
+    const fragment = tpl?.content ? tpl.content.cloneNode(true) : null;
+    const wrap = fragment?.querySelector?.(".result-control--bg") || document.createElement("div");
+    if(!wrap.classList.contains("result-control--bg")){
+      wrap.className = "result-control result-control--bg";
+      const lbl = document.createElement("span");
+      lbl.className = "result-control-label";
+      lbl.textContent = "Fondo:";
+      const modes = document.createElement("div");
+      modes.className = "result-btn-group";
+      modes.dataset.role = "bg-modes";
+      const paletteFallback = document.createElement("div");
+      paletteFallback.className = "result-palette";
+      paletteFallback.dataset.role = "bg-palette";
+      const pickerFallback = document.createElement("input");
+      pickerFallback.type = "color";
+      pickerFallback.className = "result-color-picker";
+      pickerFallback.dataset.role = "bg-picker";
+      wrap.append(lbl, modes, paletteFallback, pickerFallback);
+    }
+    const modesRoot = wrap.querySelector('[data-role="bg-modes"]');
+    const palette = wrap.querySelector('[data-role="bg-palette"]');
+    const picker = wrap.querySelector('[data-role="bg-picker"]');
+    modesRoot.innerHTML = "";
+
+    const btnGlobal = document.createElement("button");
+    btnGlobal.type = "button";
+    btnGlobal.className = "result-btn";
+    btnGlobal.textContent = "Global";
+
+    const btnManual = document.createElement("button");
+    btnManual.type = "button";
+    btnManual.className = "result-btn";
+    btnManual.textContent = "Manual";
+
+    palette.innerHTML = "";
+    const swatches = FITZGERALD_COLORS.map((c)=>{
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "color-swatch";
+      b.title = c.label;
+      b.ariaLabel = c.label;
+      b.style.background = c.value;
+      b.dataset.color = c.value;
+      b.dataset.mode = "fitzgerald";
+      palette.append(b);
+      return b;
     });
 
-    if (!it.bgOverride || it.bgOverride.mode === "global"){
-      sel.value = "global";
-    }else if (it.bgOverride.mode === "manual"){
-      sel.value = "manual";
-    }else if (it.bgOverride.mode === "fitzgerald"){
-      sel.value = `fitz:${it.bgOverride.value}`;
-    }else{
-      sel.value = "global";
+    picker.value = it.bgOverride?.mode === "manual" ? (it.bgOverride.value || cfg.bgColor || "#ffffff") : (cfg.bgColor || "#ffffff");
+
+    function refresh(){
+      const mode = it?.bgOverride?.mode || "global";
+      const val = (it?.bgOverride?.value || "").toLowerCase();
+      btnGlobal.classList.toggle("active", mode === "global");
+      btnGlobal.setAttribute("aria-pressed", mode === "global" ? "true" : "false");
+      btnManual.classList.toggle("active", mode === "manual");
+      btnManual.setAttribute("aria-pressed", mode === "manual" ? "true" : "false");
+      picker.style.display = mode === "manual" ? "" : "none";
+      swatches.forEach((s)=>{
+        const same = mode === "fitzgerald" && s.dataset.color === val;
+        s.classList.toggle("active", same);
+        s.setAttribute("aria-pressed", same ? "true" : "false");
+      });
     }
 
-    sel.addEventListener("change", ()=>{
-      const v = sel.value;
-      if (v === "global"){ it.bgOverride = { mode:"global" }; picker.style.display="none"; }
-      else if (v === "manual"){ it.bgOverride = { mode:"manual", value: picker.value || cfg.bgColor || "#ffffff" }; picker.style.display=""; }
-      else if (v.startsWith("fitz:")){ it.bgOverride = { mode:"fitzgerald", value: v.split(":")[1] }; picker.style.display="none"; }
-      onChange();
+    picker.addEventListener("change", ()=>{
+      it.bgOverride = { mode:"manual", value: picker.value }; onChange();
+      refresh();
     });
 
-    wrap.append(lbl, sel, picker);
+    btnGlobal.addEventListener("click", ()=>{
+      it.bgOverride = { mode:"global" };
+      onChange();
+      refresh();
+    });
+    btnManual.addEventListener("click", ()=>{
+      it.bgOverride = { mode:"manual", value: picker.value || cfg.bgColor || "#ffffff" };
+      onChange();
+      refresh();
+    });
+    swatches.forEach((sw)=>{
+      sw.addEventListener("click", ()=>{
+        it.bgOverride = { mode:"fitzgerald", value: sw.dataset.color };
+        onChange();
+        refresh();
+      });
+    });
+
+    modesRoot.append(btnGlobal, btnManual);
+    refresh();
     return wrap;
   }
 
   function buildTenseControls(it, onChange){
-    const wrap = document.createElement("div"); wrap.className = "row"; wrap.style.marginTop = "6px";
-    const lbl = document.createElement("label"); lbl.textContent = "Tiempo:"; lbl.style.fontWeight = "600";
-    const sel = document.createElement("select");
-    sel.innerHTML = `
-      <option value="none">Sin marca</option>
-      <option value="past">Pasado (⬅)</option>
-      <option value="future">Futuro (➡)</option>
-    `;
-    sel.style.minWidth = "160px";
-    sel.value = it.tenseOverride || "none";
-    sel.addEventListener("change", ()=>{
-      it.tenseOverride = sel.value || "none";
-      onChange();
+    const tpl = $("result-card-controls-template");
+    const fragment = tpl?.content ? tpl.content.cloneNode(true) : null;
+    const wrap = fragment?.querySelector?.(".result-control--tense") || document.createElement("div");
+    if(!wrap.classList.contains("result-control--tense")){
+      wrap.className = "result-control result-control--tense";
+      const lbl = document.createElement("span");
+      lbl.className = "result-control-label";
+      lbl.textContent = "Tiempo:";
+      const groupFallback = document.createElement("div");
+      groupFallback.className = "result-btn-group";
+      groupFallback.dataset.role = "tense-options";
+      wrap.append(lbl, groupFallback);
+    }
+    const group = wrap.querySelector('[data-role="tense-options"]');
+    group.innerHTML = "";
+    const options = [
+      { key:"none", text:"Sin marca" },
+      { key:"past", text:"⬅ Pasado" },
+      { key:"future", text:"Futuro ➡" }
+    ];
+    const buttons = options.map((op)=>{
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "result-btn";
+      b.textContent = op.text;
+      b.dataset.value = op.key;
+      b.addEventListener("click", ()=>{
+        it.tenseOverride = op.key;
+        buttons.forEach((btn)=>{
+          const active = btn.dataset.value === op.key;
+          btn.classList.toggle("active", active);
+          btn.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        onChange();
+      });
+      return b;
     });
-    wrap.append(lbl, sel);
+    const current = it.tenseOverride || "none";
+    buttons.forEach((btn)=>{
+      const active = btn.dataset.value === current;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      group.append(btn);
+    });
+    wrap.append(lbl, group);
     return wrap;
   }
 
@@ -1414,8 +1498,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const l=document.createElement("button");l.textContent="◀";l.className="arrow-btn";l.type="button";l.ariaLabel="Anterior pictograma";
     const r=document.createElement("button");r.textContent="▶";r.className="arrow-btn";r.type="button";r.ariaLabel="Siguiente pictograma";
     const bgControl = buildBackgroundControls(obj, ()=>{ draw().then(showPrintPreview); });
-    bgControl.classList.add("result-control");
-    nav.append(l,bgControl,r);
+    nav.append(l,r);
     const img=document.createElement("img");img.className="pic-image";img.alt="";
     const cap=document.createElement("p");cap.className="word-text";
     const controls = buildBorderControls(obj, ()=>{ draw().then(showPrintPreview); });
@@ -1488,7 +1571,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav,tenseMarker,img,cap,controls,tenseControls); draw();
+    el.append(nav,tenseMarker,img,cap,controls,bgControl,tenseControls); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;
