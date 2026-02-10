@@ -596,7 +596,15 @@ html[data-theme="light"] body{
       background: rgba(255,255,255,.07);
       box-shadow: 0 14px 34px rgba(0,0,0,.32);
     }
-    .arrows-container{display:flex;justify-content:center;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap}
+    .arrows-container{
+      position: relative;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      margin-bottom:6px;
+      min-height: 32px;
+      padding: 0 38px;
+    }
     .arrow-btn{
       background: rgba(255,255,255,.06);
       color: var(--text);
@@ -609,6 +617,18 @@ html[data-theme="light"] body{
     .arrow-btn:hover{ background: rgba(255,255,255,.10); }
     .arrow-btn:disabled{ opacity:.45; cursor:not-allowed }
     .card-options-trigger{ min-width: 92px; }
+    .card-nav-left,
+    .card-nav-right{
+      position:absolute;
+      top:50%;
+      transform:translateY(-50%);
+      z-index:2;
+      min-width:30px;
+      min-height:28px;
+      padding:3px 6px;
+    }
+    .card-nav-left{ left: 0; }
+    .card-nav-right{ right: 0; }
     .card-media-wrap{
       position: relative;
       margin-top: 4px;
@@ -1083,9 +1103,9 @@ html[data-theme="light"] .result-select{
     padding: 7px;
   }
   .arrows-container{
-    justify-content: space-between;
-    gap: 4px;
+    padding: 0 30px;
     margin-bottom: 4px;
+    min-height: 28px;
   }
   .arrow-btn{
     min-width: 30px;
@@ -1097,6 +1117,12 @@ html[data-theme="light"] .result-select{
   .card-options-trigger{
     min-width: 76px;
     font-size: .72rem;
+  }
+  .card-nav-left,
+  .card-nav-right{
+    min-width: 24px;
+    min-height: 24px;
+    padding: 2px 4px;
   }
   .pic-image{
     max-height: 92px;

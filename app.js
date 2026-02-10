@@ -684,7 +684,7 @@ externalFonts:[],
     const cont = $("grid-container");
     if(!cont) return;
     const v = cfg.resultCardSize || "md";
-    const px = (v==="sm") ? 120 : (v==="lg" ? 160 : 140);
+    const px = (v==="sm") ? 140 : (v==="lg" ? 240 : 180);
     cont.style.setProperty("--card-min", px + "px");
   }
 
@@ -1190,7 +1190,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const sel = $("resultSizeSelect");
     if(!sel) return;
     const v = sel.value || "md";
-    const map = { xs:110, sm:120, md:140, lg:160 }; // min card width in px
+    const map = { xs:120, sm:140, md:180, lg:240 }; // min card width in px
     const min = map[v] || 100;
     document.documentElement.style.setProperty('--card-min', min + "px");
   }
@@ -1511,8 +1511,8 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     el.setAttribute("role","listitem");
     el.innerHTML="";
     const nav=document.createElement("div");nav.className="arrows-container";
-    const l=document.createElement("button");l.textContent="◀";l.className="arrow-btn";l.type="button";l.ariaLabel="Anterior pictograma";
-    const r=document.createElement("button");r.textContent="▶";r.className="arrow-btn";r.type="button";r.ariaLabel="Siguiente pictograma";
+    const l=document.createElement("button");l.textContent="◀";l.className="arrow-btn card-nav-left";l.type="button";l.ariaLabel="Anterior pictograma";
+    const r=document.createElement("button");r.textContent="▶";r.className="arrow-btn card-nav-right";r.type="button";r.ariaLabel="Siguiente pictograma";
     const btnProps = document.createElement("button");
     btnProps.type = "button";
     btnProps.className = "arrow-btn card-options-trigger";
