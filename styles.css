@@ -665,6 +665,16 @@ html[data-theme="light"] body{
       box-shadow: 0 0 0 2px rgba(99,102,241,.7);
       transform: scale(1.06);
     }
+
+    .result-select{
+      min-height: 34px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 6px 8px;
+      min-width: 240px;
+    }
     .result-color-picker{
       height: 34px;
       width: 48px;
@@ -672,12 +682,12 @@ html[data-theme="light"] body{
     .tense-marker{
       position:absolute;
       top:8px;
-      font-size:18px;
+      font-size:24px;
       font-weight:700;
       color:#111;
-      background: rgba(255,255,255,.75);
+      background: rgba(255,255,255,.95);
       border-radius: 999px;
-      padding: 4px 8px;
+      padding: 6px 10px;
       line-height: 1;
       box-shadow: 0 4px 12px rgba(0,0,0,.15);
       display:none;

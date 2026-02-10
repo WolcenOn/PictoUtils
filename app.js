@@ -420,11 +420,11 @@ externalFonts:[],
   }
 
   const FITZGERALD_COLORS = [
-    { label: "Fitzgerald · Sustantivo (naranja)", value: "#e67e22" },
-    { label: "Fitzgerald · Verbo (verde)", value: "#2ecc71" },
-    { label: "Fitzgerald · Adjetivo (azul)", value: "#2471a3" },
-    { label: "Fitzgerald · Pronombre (morado)", value: "#6c3483" },
-    { label: "Fitzgerald · Adverbio (amarillo)", value: "#f4d03f" },
+    { label: "🟧 Sustantivos (naranja)", value: "#e67e22" },
+    { label: "🟩 Verbos (verde)", value: "#2ecc71" },
+    { label: "🟦 Cualidades/Adjetivos (azul)", value: "#2471a3" },
+    { label: "🟪 Expresiones sociales/Pronombres (morado)", value: "#6c3483" },
+    { label: "🟨 Miscelánea/Adverbios (amarillo)", value: "#f4d03f" },
   ];
 
   function getItemBgColor(item){
@@ -436,34 +436,42 @@ externalFonts:[],
   function drawTenseMarker(ctx, item, width, height, borderPx){
     const mode = item?.tenseOverride || "none";
     if(mode === "none") return;
-    const inset = Math.max(4, Math.round((borderPx || 0) + 4));
-    const size = Math.max(12, Math.round(Math.min(width, height) * 0.12));
-    const color = "#111";
-    const x = mode === "past" ? inset : width - inset - size;
-    const y = inset;
+
+    const markerRadius = Math.max(12, Math.round(Math.min(width, height) * 0.065));
+    const outerInset = Math.max(10, Math.round((borderPx || 0) + 10));
+    const cx = mode === "past"
+      ? (outerInset + markerRadius)
+      : (width - outerInset - markerRadius);
+    const cy = outerInset + markerRadius;
+
     ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(2, Math.round(size * 0.12));
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.strokeStyle = "rgba(17,17,17,0.85)";
+    ctx.lineWidth = Math.max(1.5, markerRadius * 0.16);
+    ctx.beginPath();
+    ctx.arc(cx, cy, markerRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    const wing = markerRadius * 0.95;
+    const tip = markerRadius * 0.58;
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = Math.max(2, markerRadius * 0.2);
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    const midY = y + size * 0.5;
     ctx.beginPath();
     if(mode === "past"){
-      const startX = x + size;
-      ctx.moveTo(startX, midY);
-      ctx.lineTo(x + size * 0.2, midY);
-      ctx.moveTo(x + size * 0.2, midY);
-      ctx.lineTo(x + size * 0.45, y + size * 0.25);
-      ctx.moveTo(x + size * 0.2, midY);
-      ctx.lineTo(x + size * 0.45, y + size * 0.75);
+      ctx.moveTo(cx + wing * 0.45, cy);
+      ctx.lineTo(cx - wing * 0.5, cy);
+      ctx.lineTo(cx - wing * 0.18, cy - tip * 0.55);
+      ctx.moveTo(cx - wing * 0.5, cy);
+      ctx.lineTo(cx - wing * 0.18, cy + tip * 0.55);
     }else{
-      const startX = x;
-      ctx.moveTo(startX, midY);
-      ctx.lineTo(x + size * 0.8, midY);
-      ctx.moveTo(x + size * 0.8, midY);
-      ctx.lineTo(x + size * 0.55, y + size * 0.25);
-      ctx.moveTo(x + size * 0.8, midY);
-      ctx.lineTo(x + size * 0.55, y + size * 0.75);
+      ctx.moveTo(cx - wing * 0.45, cy);
+      ctx.lineTo(cx + wing * 0.5, cy);
+      ctx.lineTo(cx + wing * 0.18, cy - tip * 0.55);
+      ctx.moveTo(cx + wing * 0.5, cy);
+      ctx.lineTo(cx + wing * 0.18, cy + tip * 0.55);
     }
     ctx.stroke();
     ctx.restore();
@@ -1348,96 +1356,57 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
   }
 
   function buildBackgroundControls(it, onChange){
-    const tpl = $("result-card-controls-template");
-    const fragment = tpl?.content ? tpl.content.cloneNode(true) : null;
-    const wrap = fragment?.querySelector?.(".result-control--bg") || document.createElement("div");
-    if(!wrap.classList.contains("result-control--bg")){
-      wrap.className = "result-control result-control--bg";
-      const lbl = document.createElement("span");
-      lbl.className = "result-control-label";
-      lbl.textContent = "Fondo:";
-      const modes = document.createElement("div");
-      modes.className = "result-btn-group";
-      modes.dataset.role = "bg-modes";
-      const paletteFallback = document.createElement("div");
-      paletteFallback.className = "result-palette";
-      paletteFallback.dataset.role = "bg-palette";
-      const pickerFallback = document.createElement("input");
-      pickerFallback.type = "color";
-      pickerFallback.className = "result-color-picker";
-      pickerFallback.dataset.role = "bg-picker";
-      wrap.append(lbl, modes, paletteFallback, pickerFallback);
-    }
-    const modesRoot = wrap.querySelector('[data-role="bg-modes"]');
-    const palette = wrap.querySelector('[data-role="bg-palette"]');
-    const picker = wrap.querySelector('[data-role="bg-picker"]');
-    modesRoot.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "result-control result-control--bg";
 
-    const btnGlobal = document.createElement("button");
-    btnGlobal.type = "button";
-    btnGlobal.className = "result-btn";
-    btnGlobal.textContent = "Global";
+    const lbl = document.createElement("span");
+    lbl.className = "result-control-label";
+    lbl.textContent = "Fondo:";
 
-    const btnManual = document.createElement("button");
-    btnManual.type = "button";
-    btnManual.className = "result-btn";
-    btnManual.textContent = "Manual";
+    const sel = document.createElement("select");
+    sel.className = "result-select";
+    sel.innerHTML = `
+      <option value="global">Usar color global</option>
+      <option value="manual">Manual (selector de color)</option>
+      <optgroup label="Código Fitzgerald">
+        ${FITZGERALD_COLORS.map(c=>`<option value="fitz:${c.value}">${c.label}</option>`).join("")}
+      </optgroup>
+    `;
 
-    palette.innerHTML = "";
-    const swatches = FITZGERALD_COLORS.map((c)=>{
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "color-swatch";
-      b.title = c.label;
-      b.ariaLabel = c.label;
-      b.style.background = c.value;
-      b.dataset.color = c.value;
-      b.dataset.mode = "fitzgerald";
-      palette.append(b);
-      return b;
-    });
-
+    const picker = document.createElement("input");
+    picker.type = "color";
+    picker.className = "result-color-picker";
     picker.value = it.bgOverride?.mode === "manual" ? (it.bgOverride.value || cfg.bgColor || "#ffffff") : (cfg.bgColor || "#ffffff");
 
     function refresh(){
-      const mode = it?.bgOverride?.mode || "global";
-      const val = (it?.bgOverride?.value || "").toLowerCase();
-      btnGlobal.classList.toggle("active", mode === "global");
-      btnGlobal.setAttribute("aria-pressed", mode === "global" ? "true" : "false");
-      btnManual.classList.toggle("active", mode === "manual");
-      btnManual.setAttribute("aria-pressed", mode === "manual" ? "true" : "false");
-      picker.style.display = mode === "manual" ? "" : "none";
-      swatches.forEach((s)=>{
-        const same = mode === "fitzgerald" && s.dataset.color === val;
-        s.classList.toggle("active", same);
-        s.setAttribute("aria-pressed", same ? "true" : "false");
-      });
+      if(!it.bgOverride || it.bgOverride.mode === "global"){
+        sel.value = "global";
+      }else if(it.bgOverride.mode === "manual"){
+        sel.value = "manual";
+      }else if(it.bgOverride.mode === "fitzgerald"){
+        sel.value = `fitz:${it.bgOverride.value}`;
+      }else{
+        sel.value = "global";
+      }
+      picker.style.display = sel.value === "manual" ? "" : "none";
     }
 
+    sel.addEventListener("change", ()=>{
+      const v = sel.value;
+      if(v === "global") it.bgOverride = { mode:"global" };
+      else if(v === "manual") it.bgOverride = { mode:"manual", value: picker.value || cfg.bgColor || "#ffffff" };
+      else if(v.startsWith("fitz:")) it.bgOverride = { mode:"fitzgerald", value: v.split(":")[1] };
+      onChange();
+      refresh();
+    });
+
     picker.addEventListener("change", ()=>{
-      it.bgOverride = { mode:"manual", value: picker.value }; onChange();
-      refresh();
-    });
-
-    btnGlobal.addEventListener("click", ()=>{
-      it.bgOverride = { mode:"global" };
+      it.bgOverride = { mode:"manual", value: picker.value };
       onChange();
       refresh();
     });
-    btnManual.addEventListener("click", ()=>{
-      it.bgOverride = { mode:"manual", value: picker.value || cfg.bgColor || "#ffffff" };
-      onChange();
-      refresh();
-    });
-    swatches.forEach((sw)=>{
-      sw.addEventListener("click", ()=>{
-        it.bgOverride = { mode:"fitzgerald", value: sw.dataset.color };
-        onChange();
-        refresh();
-      });
-    });
 
-    modesRoot.append(btnGlobal, btnManual);
+    wrap.append(lbl, sel, picker);
     refresh();
     return wrap;
   }
@@ -1547,7 +1516,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       el.style.borderColor = col;
       el.style.background = getItemBgColor(obj);
       const borderPx = Math.max(0, (parseFloat(cfg.borderWidthMm) || 0) * MM_TO_PX);
-      const inset = Math.max(4, Math.round(borderPx + 4));
+      const inset = Math.max(10, Math.round(borderPx + 10));
       if(obj.tenseOverride === "past"){
         tenseMarker.textContent = "⬅";
         tenseMarker.dataset.position = "left";
@@ -1555,6 +1524,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
         tenseMarker.style.right = "auto";
         tenseMarker.style.top = `${inset}px`;
         tenseMarker.style.display = "inline-flex";
+        tenseMarker.style.fontSize = "24px";
       }else if(obj.tenseOverride === "future"){
         tenseMarker.textContent = "➡";
         tenseMarker.dataset.position = "right";
@@ -1562,6 +1532,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
         tenseMarker.style.left = "auto";
         tenseMarker.style.top = `${inset}px`;
         tenseMarker.style.display = "inline-flex";
+        tenseMarker.style.fontSize = "24px";
       }else{
         tenseMarker.style.display = "none";
       }
@@ -2249,7 +2220,7 @@ async function renderCardCanvasForMm(item){
   const innerW = W - 2*Mpx, innerH = H - 2*Mpx;
 
   // Fondo tarjeta
-  ctx.fillStyle = cfg.bgColor || "#ffffff";
+  ctx.fillStyle = getItemBgColor(item);
   ctx.fillRect(innerX, innerY, innerW, innerH);
 
   // Borde (grosor + color)

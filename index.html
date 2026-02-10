@@ -482,11 +482,11 @@
 <template id="result-card-controls-template">
 <div class="result-control result-control--bg">
 <span class="result-control-label">Fondo:</span>
-<div class="result-btn-group" data-role="bg-modes">
-<button class="result-btn" data-mode="global" type="button">Global</button>
-<button class="result-btn" data-mode="manual" type="button">Manual</button>
-</div>
-<div class="result-palette" data-role="bg-palette"></div>
+<select class="result-select" data-role="bg-select">
+<option value="global">Usar color global</option>
+<option value="manual">Manual (selector de color)</option>
+<optgroup label="Código Fitzgerald"></optgroup>
+</select>
 <input class="result-color-picker" data-role="bg-picker" type="color" value="#ffffff"/>
 </div>
 <div class="result-control result-control--tense">
