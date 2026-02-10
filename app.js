@@ -1448,15 +1448,21 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const wrap = fragment?.querySelector?.(".result-control--tense") || document.createElement("div");
     if(!wrap.classList.contains("result-control--tense")){
       wrap.className = "result-control result-control--tense";
-      const lbl = document.createElement("span");
-      lbl.className = "result-control-label";
-      lbl.textContent = "Tiempo:";
+      const lblFallback = document.createElement("span");
+      lblFallback.className = "result-control-label";
+      lblFallback.textContent = "Tiempo:";
       const groupFallback = document.createElement("div");
       groupFallback.className = "result-btn-group";
       groupFallback.dataset.role = "tense-options";
-      wrap.append(lbl, groupFallback);
+      wrap.append(lblFallback, groupFallback);
     }
-    const group = wrap.querySelector('[data-role="tense-options"]');
+    let group = wrap.querySelector('[data-role="tense-options"]');
+    if(!group){
+      group = document.createElement("div");
+      group.className = "result-btn-group";
+      group.dataset.role = "tense-options";
+      wrap.append(group);
+    }
     group.innerHTML = "";
     const options = [
       { key:"none", text:"Sin marca" },
@@ -1487,7 +1493,6 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       btn.setAttribute("aria-pressed", active ? "true" : "false");
       group.append(btn);
     });
-    wrap.append(lbl, group);
     return wrap;
   }
 
