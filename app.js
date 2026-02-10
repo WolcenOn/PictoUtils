@@ -1519,6 +1519,8 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     btnProps.textContent = "⚙ Opciones";
     btnProps.title = "Opciones de esta tarjeta";
     nav.append(l,btnProps,r);
+    const mediaWrap=document.createElement("div");
+    mediaWrap.className = "card-media-wrap";
     const img=document.createElement("img");img.className="pic-image";img.alt="";
     const cap=document.createElement("p");cap.className="word-text";
     btnProps.addEventListener("click", ()=>{
@@ -1594,7 +1596,8 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav, tenseLeft, tenseRight, img, cap); draw();
+    mediaWrap.append(tenseLeft, tenseRight, img);
+    el.append(nav, mediaWrap, cap); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;
