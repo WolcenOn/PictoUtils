@@ -1421,9 +1421,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     lbl.textContent = "Tiempo:";
 
     const group = document.createElement("div");
-    group.className = "result-btn-group";
-    const badge = document.createElement("span");
-    badge.className = "tense-state-badge";
+    group.className = "result-btn-group tense-icon-group";
 
     const options = [
       { value:"past", label:"⬅", title:"Pasado" },
@@ -1437,15 +1435,12 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
         btn.classList.toggle("active", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
-      if(current === "past") badge.textContent = "Tiempo: Pasado";
-      else if(current === "future") badge.textContent = "Tiempo: Futuro";
-      else badge.textContent = "Sin tiempo";
     }
 
     options.forEach((opt)=>{
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "result-btn result-btn--tiny";
+      btn.className = "tense-icon-btn";
       btn.textContent = opt.label;
       btn.title = opt.title;
       btn.dataset.value = opt.value;
@@ -1458,7 +1453,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       group.append(btn);
     });
 
-    wrap.append(lbl, group, badge);
+    wrap.append(lbl, group);
     paintActive();
     return wrap;
   }
@@ -1475,40 +1470,9 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const cap=document.createElement("p");cap.className="word-text";
     const tenseControls = buildTenseControls(obj, ()=>{ draw().then(showPrintPreview); });
     const borderControl = buildBorderControls(obj, ()=>{ draw().then(showPrintPreview); });
-    const colorActions = document.createElement("div");
-    colorActions.className = "card-color-actions";
-    const btnBorder = document.createElement("button");
-    btnBorder.type = "button";
-    btnBorder.className = "result-btn";
-    btnBorder.textContent = "Borde";
-    const btnBg = document.createElement("button");
-    btnBg.type = "button";
-    btnBg.className = "result-btn";
-    btnBg.textContent = "Fondo";
-    colorActions.append(btnBorder, btnBg);
-
-    const colorPanels = document.createElement("div");
-    colorPanels.className = "card-color-panels";
-    borderControl.classList.add("card-color-panel");
-    bgControl.classList.add("card-color-panel");
-    borderControl.hidden = true;
-    bgControl.hidden = true;
-    colorPanels.append(borderControl, bgControl);
-
-    btnBorder.addEventListener("click", ()=>{
-      const open = borderControl.hidden;
-      borderControl.hidden = !open;
-      bgControl.hidden = true;
-      btnBorder.classList.toggle("active", open);
-      btnBg.classList.remove("active");
-    });
-    btnBg.addEventListener("click", ()=>{
-      const open = bgControl.hidden;
-      bgControl.hidden = !open;
-      borderControl.hidden = true;
-      btnBg.classList.toggle("active", open);
-      btnBorder.classList.remove("active");
-    });
+    const controlsStack = document.createElement("div");
+    controlsStack.className = "card-controls-stack";
+    controlsStack.append(tenseControls, borderControl, bgControl);
     const tenseMarker = document.createElement("span");
     tenseMarker.className = "tense-marker";
 
@@ -1582,7 +1546,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav, tenseControls, tenseMarker, img, cap, colorActions, colorPanels); draw();
+    el.append(nav, controlsStack, tenseMarker, img, cap); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;
