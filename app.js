@@ -684,7 +684,7 @@ externalFonts:[],
     const cont = $("grid-container");
     if(!cont) return;
     const v = cfg.resultCardSize || "md";
-    const px = (v==="sm") ? 180 : (v==="lg" ? 280 : 220);
+    const px = (v==="sm") ? 150 : (v==="lg" ? 210 : 170);
     cont.style.setProperty("--card-min", px + "px");
   }
 
@@ -1190,7 +1190,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const sel = $("resultSizeSelect");
     if(!sel) return;
     const v = sel.value || "md";
-    const map = { xs:160, sm:100, md:200, lg:400 }; // min card width in px
+    const map = { xs:140, sm:150, md:170, lg:210 }; // min card width in px
     const min = map[v] || 100;
     document.documentElement.style.setProperty('--card-min', min + "px");
   }
@@ -1419,20 +1419,40 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     lbl.className = "result-control-label";
     lbl.textContent = "Tiempo:";
 
-    const sel = document.createElement("select");
-    sel.className = "result-select";
-    sel.innerHTML = `
-      <option value="none">Sin marca</option>
-      <option value="past">⬅ Pasado</option>
-      <option value="future">Futuro ➡</option>
-    `;
-    sel.value = it.tenseOverride || "none";
-    sel.addEventListener("change", ()=>{
-      it.tenseOverride = sel.value || "none";
-      onChange();
+    const group = document.createElement("div");
+    group.className = "result-btn-group";
+
+    const options = [
+      { value:"none", label:"Sin marca" },
+      { value:"past", label:"⬅ Pasado" },
+      { value:"future", label:"Futuro ➡" }
+    ];
+
+    function paintActive(){
+      const current = it.tenseOverride || "none";
+      group.querySelectorAll("button").forEach((btn)=>{
+        const on = btn.dataset.value === current;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+
+    options.forEach((opt)=>{
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "result-btn";
+      btn.textContent = opt.label;
+      btn.dataset.value = opt.value;
+      btn.addEventListener("click", ()=>{
+        it.tenseOverride = opt.value;
+        paintActive();
+        onChange();
+      });
+      group.append(btn);
     });
 
-    wrap.append(lbl, sel);
+    wrap.append(lbl, group);
+    paintActive();
     return wrap;
   }
 
@@ -1485,6 +1505,8 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       const curPic = isTxt? null : cur;
       const col = effectiveBorderColor(word, curPic, obj);
       el.style.borderColor = col;
+      el.style.borderWidth = `${Math.max(2, Math.round((parseFloat(cfg.borderWidthMm)||0) * MM_TO_PX))}px`;
+      el.style.borderStyle = "solid";
       el.style.background = getItemBgColor(obj);
       const borderPx = Math.max(0, (parseFloat(cfg.borderWidthMm) || 0) * MM_TO_PX);
       const inset = Math.max(10, Math.round(borderPx + 10));
@@ -1596,7 +1618,7 @@ async function showPrintPreview(){
 
   // Fondo de la tarjeta (color de fondo configurado)
   ctx.fillStyle = getItemBgColor(it0);
-  ctx.fillRect(innerX, innerY, innerW, innerH);
+  ctx.fillRect(0, 0, pv.width, pv.height);
 
   const bwMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
   const bwPx = bwMm * pxPerMm;
@@ -2193,7 +2215,7 @@ async function renderCardCanvasForMm(item){
 
   // Fondo tarjeta
   ctx.fillStyle = getItemBgColor(item);
-  ctx.fillRect(innerX, innerY, innerW, innerH);
+  ctx.fillRect(0, 0, W, H);
 
   // Borde (grosor + color)
   const bwMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
