@@ -1413,21 +1413,52 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     return wrap;
   }
 
-  function buildCardOptionsMenu(obj, onChange){
-    const details = document.createElement("details");
-    details.className = "card-options-menu";
-    const summary = document.createElement("summary");
-    summary.className = "card-options-summary";
-    summary.textContent = "⚙ Opciones";
-    const panel = document.createElement("div");
-    panel.className = "card-options-panel";
-    panel.append(
-      buildTenseControls(obj, onChange),
-      buildBorderControls(obj, onChange),
-      buildBackgroundControls(obj, onChange)
+  let cardPropsModal = null;
+  function ensureCardPropsModal(){
+    if(cardPropsModal) return cardPropsModal;
+    const overlay = document.createElement("div");
+    overlay.className = "card-props-overlay";
+    overlay.style.display = "none";
+
+    const box = document.createElement("div");
+    box.className = "card-props-content";
+
+    const head = document.createElement("div");
+    head.className = "card-props-header";
+    const title = document.createElement("strong");
+    title.textContent = "Opciones de tarjeta";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "btn-mini";
+    closeBtn.textContent = "Cerrar";
+
+    const body = document.createElement("div");
+    body.className = "card-props-body";
+
+    head.append(title, closeBtn);
+    box.append(head, body);
+    overlay.append(box);
+    document.body.append(overlay);
+
+    function close(){ overlay.style.display = "none"; }
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e)=>{ if(e.target === overlay) close(); });
+
+    cardPropsModal = { overlay, title, body, close };
+    return cardPropsModal;
+  }
+
+  function openCardPropsModal(item, onChange){
+    const m = ensureCardPropsModal();
+    m.title.textContent = `Opciones: ${displayWord(item.word || "Tarjeta")}`;
+    m.body.innerHTML = "";
+    const update = ()=>onChange();
+    m.body.append(
+      buildTenseControls(item, update),
+      buildBorderControls(item, update),
+      buildBackgroundControls(item, update)
     );
-    details.append(summary, panel);
-    return details;
+    m.overlay.style.display = "flex";
   }
 
   function buildTenseControls(it, onChange){
@@ -1482,11 +1513,17 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const nav=document.createElement("div");nav.className="arrows-container";
     const l=document.createElement("button");l.textContent="◀";l.className="arrow-btn";l.type="button";l.ariaLabel="Anterior pictograma";
     const r=document.createElement("button");r.textContent="▶";r.className="arrow-btn";r.type="button";r.ariaLabel="Siguiente pictograma";
-    const bgControl = buildBackgroundControls(obj, ()=>{ draw().then(showPrintPreview); });
-    nav.append(l,r);
+    const btnProps = document.createElement("button");
+    btnProps.type = "button";
+    btnProps.className = "arrow-btn";
+    btnProps.textContent = "⚙";
+    btnProps.title = "Opciones de esta tarjeta";
+    nav.append(l,btnProps,r);
     const img=document.createElement("img");img.className="pic-image";img.alt="";
     const cap=document.createElement("p");cap.className="word-text";
-    const optionsMenu = buildCardOptionsMenu(obj, ()=>{ draw().then(showPrintPreview); });
+    btnProps.addEventListener("click", ()=>{
+      openCardPropsModal(obj, ()=>{ draw().then(showPrintPreview); });
+    });
     const tenseLeft = document.createElement("button");
     tenseLeft.type = "button";
     tenseLeft.className = "tense-overlay-btn tense-overlay-btn--left";
@@ -1557,7 +1594,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav, optionsMenu, tenseLeft, tenseRight, img, cap); draw();
+    el.append(nav, tenseLeft, tenseRight, img, cap); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;

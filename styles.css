@@ -616,25 +616,34 @@ html[data-theme="light"] body{
       overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
       font-family: var(--card-font);
     }
-    .card-options-menu{margin-top:6px}
-    .card-options-summary{
-      cursor:pointer;
-      list-style:none;
-      border:1px solid rgba(255,255,255,.16);
-      border-radius:10px;
-      background: rgba(15,23,42,.3);
-      color: var(--text);
-      padding:4px 8px;
-      font-size:.76rem;
-      text-align:center;
-      font-weight:600;
+    .card-props-overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.62);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2147483600;
+      padding: 16px;
     }
-    .card-options-summary::-webkit-details-marker{display:none}
-    .card-options-panel{
-      margin-top:5px;
-      display:grid;
-      gap:5px;
+    .card-props-content{
+      width: min(560px, 94vw);
+      max-height: 86vh;
+      overflow: auto;
+      background: var(--panel, #111827);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.42);
+      padding: 12px;
     }
+    .card-props-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .card-props-body{display:grid;gap:6px}
     .card-option-row{align-items:center; gap:6px; margin-top:0 !important; justify-content:flex-start}
     .card-option-label{min-width:45px; font-weight:600; font-size:.8rem}
     .card-option-select{min-width:0 !important; width:100%; max-width:100%}
@@ -1034,17 +1043,16 @@ html[data-theme="light"] .tense-overlay-btn{ color:#94a3b8; text-shadow:none; }
 html[data-theme="light"] .tense-overlay-btn.active{ color:#111827; }
 html[data-theme="dark"] .tense-overlay-btn{ color:#64748b; }
 html[data-theme="dark"] .tense-overlay-btn.active{ color:#f8fafc; }
-html[data-theme="light"] .card-options-summary{
-  background: rgba(15,23,42,.08);
-  color:#0f172a;
+html[data-theme="light"] .card-props-content{
+  background: #fff;
   border-color: rgba(15,23,42,.2);
 }
-html[data-theme="light"] .card-options-panel .card-option-row{
+html[data-theme="light"] .card-props-body .card-option-row{
   border:1px solid rgba(15,23,42,.12);
   border-radius:10px;
   padding:4px 6px;
 }
-html[data-theme="dark"] .card-options-panel .card-option-row{
+html[data-theme="dark"] .card-props-body .card-option-row{
   border:1px solid rgba(255,255,255,.12);
   border-radius:10px;
   padding:4px 6px;
