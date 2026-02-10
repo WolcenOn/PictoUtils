@@ -618,7 +618,7 @@ html[data-theme="light"] body{
     }
     .card-option-row{align-items:center; gap:6px; margin-top:0 !important}
     .card-option-label{min-width:45px; font-weight:600; font-size:.8rem}
-    .card-option-select{min-width:150px !important; max-width:100%}
+    .card-option-select{min-width:180px !important; max-width:100%}
     .card-color-actions{
       margin-top: 6px;
       display:flex;
@@ -678,6 +678,24 @@ html[data-theme="light"] body{
       padding: 0;
       font-size: .9rem;
       line-height: 1;
+      background: rgba(148,163,184,.25);
+      color: #e2e8f0;
+      border-color: rgba(148,163,184,.45);
+    }
+    .result-btn--tiny.active{
+      background: rgba(99,102,241,.95);
+      color:#fff;
+      border-color: rgba(165,180,252,.95);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.35) inset;
+    }
+    .tense-state-badge{
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--text);
+      background: rgba(15,23,42,.22);
+      border:1px solid rgba(255,255,255,.15);
+      border-radius: 999px;
+      padding: 2px 8px;
     }
     .result-btn.active{
       background: rgba(99,102,241,.88);
@@ -1019,6 +1037,20 @@ html[data-theme="light"] .result-btn{
 html[data-theme="light"] .result-btn.active{
   background: rgba(99,102,241,.8);
   color: #fff;
+}
+html[data-theme="light"] .result-btn--tiny{
+  background: rgba(148,163,184,.32);
+  color:#334155;
+  border-color: rgba(100,116,139,.42);
+}
+html[data-theme="light"] .result-btn--tiny.active{
+  background: rgba(99,102,241,.9);
+  color:#fff;
+}
+html[data-theme="light"] .tense-state-badge{
+  background:#fff;
+  color:#334155;
+  border-color: rgba(15,23,42,.2);
 }
 html[data-theme="light"] .result-select{
   background: #fff;

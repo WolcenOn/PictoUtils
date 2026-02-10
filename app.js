@@ -1365,6 +1365,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
 
     const sel = document.createElement("select");
     sel.className = "result-select card-option-select";
+    sel.style.minWidth = "180px";
     sel.innerHTML = `
       <option value="global">Usar color global</option>
       <option value="manual">Manual (selector de color)</option>
@@ -1421,9 +1422,10 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
 
     const group = document.createElement("div");
     group.className = "result-btn-group";
+    const badge = document.createElement("span");
+    badge.className = "tense-state-badge";
 
     const options = [
-      { value:"none", label:"•", title:"Presente / sin marca" },
       { value:"past", label:"⬅", title:"Pasado" },
       { value:"future", label:"➡", title:"Futuro" }
     ];
@@ -1435,6 +1437,9 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
         btn.classList.toggle("active", on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
+      if(current === "past") badge.textContent = "Tiempo: Pasado";
+      else if(current === "future") badge.textContent = "Tiempo: Futuro";
+      else badge.textContent = "Sin tiempo";
     }
 
     options.forEach((opt)=>{
@@ -1445,14 +1450,15 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       btn.title = opt.title;
       btn.dataset.value = opt.value;
       btn.addEventListener("click", ()=>{
-        it.tenseOverride = opt.value;
+        const current = it.tenseOverride || "none";
+        it.tenseOverride = (current === opt.value) ? "none" : opt.value;
         paintActive();
         onChange();
       });
       group.append(btn);
     });
 
-    wrap.append(lbl, group);
+    wrap.append(lbl, group, badge);
     paintActive();
     return wrap;
   }
