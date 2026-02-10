@@ -608,6 +608,7 @@ html[data-theme="light"] body{
     }
     .arrow-btn:hover{ background: rgba(255,255,255,.10); }
     .arrow-btn:disabled{ opacity:.45; cursor:not-allowed }
+    .card-options-trigger{ min-width: 92px; }
     .pic-image{max-width:100%;max-height:120px;height:auto;display:block;margin:0 auto;border-radius:10px;border: 1px solid rgba(255,255,255,.25);background: transparent}
     .word-text{
       margin-top:6px;font-size:.86rem;
@@ -1061,4 +1062,67 @@ html[data-theme="light"] .result-select{
   background: #fff;
   color: #0f172a;
   border-color: rgba(15,23,42,.25);
+}
+
+@media (max-width: 768px){
+  .grid-container{
+    --card-min: 120px;
+    gap: 10px;
+  }
+  .grid-item{
+    padding: 7px;
+  }
+  .arrows-container{
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .arrow-btn{
+    min-width: 30px;
+    min-height: 28px;
+    padding: 3px 6px;
+    font-size: .78rem;
+    border-radius: 9px;
+  }
+  .card-options-trigger{
+    min-width: 76px;
+    font-size: .72rem;
+  }
+  .pic-image{
+    max-height: 92px;
+  }
+  .word-text{
+    margin-top: 4px;
+    font-size: .78rem;
+  }
+  .tense-overlay-btn{
+    top: 6px;
+    font-size: 18px;
+    text-shadow: none;
+  }
+  .tense-overlay-btn--left{ left:6px; }
+  .tense-overlay-btn--right{ right:6px; }
+  .card-props-content{
+    width: min(520px, 96vw);
+    max-height: 90vh;
+    padding: 10px;
+  }
+  .card-props-header{
+    margin-bottom: 6px;
+  }
+  .card-option-label{
+    min-width: 42px;
+    font-size: .76rem;
+  }
+  .card-option-row{
+    gap: 4px;
+  }
+  .card-option-select{
+    font-size: .75rem;
+    min-height: 26px;
+  }
+  .result-color-picker{
+    width: 34px;
+    height: 26px;
+  }
 }
