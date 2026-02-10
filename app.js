@@ -1357,14 +1357,14 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
 
   function buildBackgroundControls(it, onChange){
     const wrap = document.createElement("div");
-    wrap.className = "result-control result-control--bg";
+    wrap.className = "row card-option-row";
 
-    const lbl = document.createElement("span");
-    lbl.className = "result-control-label";
+    const lbl = document.createElement("label");
+    lbl.className = "card-option-label";
     lbl.textContent = "Fondo:";
 
     const sel = document.createElement("select");
-    sel.className = "result-select";
+    sel.className = "result-select card-option-select";
     sel.innerHTML = `
       <option value="global">Usar color global</option>
       <option value="manual">Manual (selector de color)</option>
@@ -1413,19 +1413,19 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
 
   function buildTenseControls(it, onChange){
     const wrap = document.createElement("div");
-    wrap.className = "result-control result-control--tense";
+    wrap.className = "row card-option-row";
 
-    const lbl = document.createElement("span");
-    lbl.className = "result-control-label";
+    const lbl = document.createElement("label");
+    lbl.className = "card-option-label";
     lbl.textContent = "Tiempo:";
 
     const group = document.createElement("div");
     group.className = "result-btn-group";
 
     const options = [
-      { value:"none", label:"Sin marca" },
-      { value:"past", label:"⬅ Pasado" },
-      { value:"future", label:"Futuro ➡" }
+      { value:"none", label:"•", title:"Presente / sin marca" },
+      { value:"past", label:"⬅", title:"Pasado" },
+      { value:"future", label:"➡", title:"Futuro" }
     ];
 
     function paintActive(){
@@ -1440,8 +1440,9 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     options.forEach((opt)=>{
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "result-btn";
+      btn.className = "result-btn result-btn--tiny";
       btn.textContent = opt.label;
+      btn.title = opt.title;
       btn.dataset.value = opt.value;
       btn.addEventListener("click", ()=>{
         it.tenseOverride = opt.value;
@@ -1456,6 +1457,24 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     return wrap;
   }
 
+  function buildCardOptionsMenu(obj, onChange){
+    const details = document.createElement("details");
+    details.className = "card-options-menu";
+    const summary = document.createElement("summary");
+    summary.className = "card-options-summary";
+    summary.textContent = "⚙️ Opciones";
+
+    const panel = document.createElement("div");
+    panel.className = "card-options-panel";
+    panel.append(
+      buildBorderControls(obj, onChange),
+      buildBackgroundControls(obj, onChange),
+      buildTenseControls(obj, onChange)
+    );
+    details.append(summary, panel);
+    return details;
+  }
+
   function renderItem(el,obj){
     el.setAttribute("role","listitem");
     el.innerHTML="";
@@ -1466,8 +1485,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     nav.append(l,r);
     const img=document.createElement("img");img.className="pic-image";img.alt="";
     const cap=document.createElement("p");cap.className="word-text";
-    const controls = buildBorderControls(obj, ()=>{ draw().then(showPrintPreview); });
-    const tenseControls = buildTenseControls(obj, ()=>{ draw().then(showPrintPreview); });
+    const optionsMenu = buildCardOptionsMenu(obj, ()=>{ draw().then(showPrintPreview); });
     const tenseMarker = document.createElement("span");
     tenseMarker.className = "tense-marker";
 
@@ -1497,7 +1515,9 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
             `<div style='border-bottom:2px solid #000;width:92%;margin:0 auto'></div>`;
           cap.style.display="block";
         }else if(cfg.fontSize===0){
-          cap.style.display="none";
+          cap.textContent = word;
+          cap.style.display="block";
+          cap.style.fontSize="0.95rem";
         }else{
           cap.textContent=word;cap.style.display="block";cap.style.fontSize="1.05rem";
         }
@@ -1541,7 +1561,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav,tenseMarker,img,cap,controls,bgControl,tenseControls); draw();
+    el.append(nav,tenseMarker,img,cap,optionsMenu); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;

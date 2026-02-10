@@ -584,7 +584,7 @@ html[data-theme="light"] body{
     .grid-item{
       position: relative;
       border:1px solid rgba(255,255,255,.10);
-      padding: 12px;
+      padding: 10px;
       text-align:center;
       background: rgba(255,255,255,.05);
       border-radius: 14px;
@@ -610,12 +610,41 @@ html[data-theme="light"] body{
     .arrow-btn:disabled{ opacity:.45; cursor:not-allowed }
     .pic-image{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:12px;border: 1px solid rgba(255,255,255,.25);background: transparent}
     .word-text{
-      margin-top:10px;font-size:1.03rem;
+      margin-top:8px;font-size:.95rem;
       color: var(--text);
       font-weight: var(--card-font-weight);
       overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
       font-family: var(--card-font);
     }
+    .card-options-menu{
+      margin-top: 8px;
+      text-align: left;
+    }
+    .card-options-summary{
+      cursor: pointer;
+      list-style: none;
+      border:1px solid rgba(255,255,255,.18);
+      border-radius: 10px;
+      background: rgba(15,23,42,.3);
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: .86rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .card-options-summary::-webkit-details-marker{display:none}
+    .card-options-panel{
+      margin-top: 6px;
+      display: grid;
+      gap: 6px;
+      background: rgba(15,23,42,.16);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 10px;
+      padding: 8px;
+    }
+    .card-option-row{align-items:center; gap:8px; margin-top:0 !important}
+    .card-option-label{min-width:56px; font-weight:600}
+    .card-option-select{min-width:150px !important; max-width:100%}
     .result-control{
       display:flex;
       align-items:center;
@@ -648,6 +677,18 @@ html[data-theme="light"] body{
       padding: 6px 9px;
       min-height: 34px;
       font-size: .88rem;
+    }
+    .result-btn--tiny{
+      min-width: 34px;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-size: 1rem;
+      line-height: 1;
     }
     .result-btn.active{
       background: rgba(99,102,241,.88);
@@ -994,4 +1035,13 @@ html[data-theme="light"] .result-select{
   background: #fff;
   color: #0f172a;
   border-color: rgba(15,23,42,.25);
+}
+html[data-theme="light"] .card-options-summary{
+  background: rgba(15,23,42,.08);
+  color:#0f172a;
+  border-color: rgba(15,23,42,.2);
+}
+html[data-theme="light"] .card-options-panel{
+  background: rgba(15,23,42,.04);
+  border-color: rgba(15,23,42,.16);
 }
