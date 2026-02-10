@@ -616,11 +616,29 @@ html[data-theme="light"] body{
       overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
       font-family: var(--card-font);
     }
-    .card-controls-stack{display:grid;gap:5px;margin-top:6px}
+    .card-options-menu{margin-top:6px}
+    .card-options-summary{
+      cursor:pointer;
+      list-style:none;
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:10px;
+      background: rgba(15,23,42,.3);
+      color: var(--text);
+      padding:4px 8px;
+      font-size:.76rem;
+      text-align:center;
+      font-weight:600;
+    }
+    .card-options-summary::-webkit-details-marker{display:none}
+    .card-options-panel{
+      margin-top:5px;
+      display:grid;
+      gap:5px;
+    }
     .card-option-row{align-items:center; gap:6px; margin-top:0 !important; justify-content:flex-start}
     .card-option-label{min-width:45px; font-weight:600; font-size:.8rem}
-    .card-option-select{min-width:180px !important; max-width:100%}
-    .tense-icon-group{gap:10px}
+    .card-option-select{min-width:0 !important; width:100%; max-width:100%}
+    .tense-icon-group{gap:14px}
     .tense-icon-btn{
       border:none;
       background: transparent;
@@ -631,6 +649,22 @@ html[data-theme="light"] body{
       cursor: pointer;
     }
     .tense-icon-btn.active{ color:#0b0f19; }
+    .tense-overlay-btn{
+      position:absolute;
+      top:8px;
+      border:none;
+      background: transparent;
+      color:#94a3b8;
+      font-size:22px;
+      line-height:1;
+      padding:0;
+      cursor:pointer;
+      z-index:3;
+      text-shadow: 0 1px 2px rgba(0,0,0,.35);
+    }
+    .tense-overlay-btn--left{ left:10px; }
+    .tense-overlay-btn--right{ right:10px; }
+    .tense-overlay-btn.active{ color:#111; }
     .result-control{
       display:flex;
       align-items:center;
@@ -700,20 +734,7 @@ html[data-theme="light"] body{
       height: 28px;
       width: 40px;
     }
-    .tense-marker{
-      position:absolute;
-      top:8px;
-      font-size:24px;
-      font-weight:700;
-      color:#111;
-      background: rgba(255,255,255,.95);
-      border-radius: 999px;
-      padding: 6px 10px;
-      line-height: 1;
-      box-shadow: 0 4px 12px rgba(0,0,0,.15);
-      display:none;
-      z-index: 2;
-    }
+    .tense-marker{display:none !important}
 
     /* Tabla reglas */
     .rules-table{width:100%;border-collapse:collapse}
@@ -1009,12 +1030,21 @@ html[data-theme="light"] .tense-icon-btn{ color:#94a3b8; }
 html[data-theme="light"] .tense-icon-btn.active{ color:#111827; }
 html[data-theme="dark"] .tense-icon-btn.active{ color:#f8fafc; }
 html[data-theme="dark"] .tense-icon-btn{ color:#64748b; }
-html[data-theme="light"] .card-controls-stack .card-option-row{
+html[data-theme="light"] .tense-overlay-btn{ color:#94a3b8; text-shadow:none; }
+html[data-theme="light"] .tense-overlay-btn.active{ color:#111827; }
+html[data-theme="dark"] .tense-overlay-btn{ color:#64748b; }
+html[data-theme="dark"] .tense-overlay-btn.active{ color:#f8fafc; }
+html[data-theme="light"] .card-options-summary{
+  background: rgba(15,23,42,.08);
+  color:#0f172a;
+  border-color: rgba(15,23,42,.2);
+}
+html[data-theme="light"] .card-options-panel .card-option-row{
   border:1px solid rgba(15,23,42,.12);
   border-radius:10px;
   padding:4px 6px;
 }
-html[data-theme="dark"] .card-controls-stack .card-option-row{
+html[data-theme="dark"] .card-options-panel .card-option-row{
   border:1px solid rgba(255,255,255,.12);
   border-radius:10px;
   padding:4px 6px;

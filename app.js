@@ -1313,9 +1313,10 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
   }
 
   function buildBorderControls(it, onChange){
-    const wrap = document.createElement("div"); wrap.className = "row"; wrap.style.marginTop = "6px";
-    const lbl = document.createElement("label"); lbl.textContent = "Borde:"; lbl.style.fontWeight = "600";
+    const wrap = document.createElement("div"); wrap.className = "row card-option-row";
+    const lbl = document.createElement("label"); lbl.className = "card-option-label"; lbl.textContent = "Borde:";
     const sel = document.createElement("select");
+    sel.className = "result-select card-option-select";
     sel.innerHTML = `
       <option value="auto">Auto</option>
       <option value="global">Global</option>
@@ -1326,11 +1327,11 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       <option value="class:social">Social (morado)</option>
       <option value="manual">Color manual…</option>
     `;
-    sel.style.minWidth = "180px";
+    sel.style.minWidth = "0";
     const picker = document.createElement("input");
     picker.type = "color";
     picker.value = it.borderOverride?.mode==="manual" ? (it.borderOverride.value || "#000000") : "#000000";
-    picker.style.height = "36px";
+    picker.className = "result-color-picker";
     picker.style.display = (it.borderOverride?.mode==="manual") ? "" : "none";
     picker.addEventListener("change", ()=>{
       it.borderOverride = { mode:"manual", value: picker.value }; onChange();
@@ -1365,7 +1366,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
 
     const sel = document.createElement("select");
     sel.className = "result-select card-option-select";
-    sel.style.minWidth = "180px";
+    sel.style.minWidth = "0";
     sel.innerHTML = `
       <option value="global">Usar color global</option>
       <option value="manual">Manual (selector de color)</option>
@@ -1410,6 +1411,23 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     wrap.append(lbl, sel, picker);
     refresh();
     return wrap;
+  }
+
+  function buildCardOptionsMenu(obj, onChange){
+    const details = document.createElement("details");
+    details.className = "card-options-menu";
+    const summary = document.createElement("summary");
+    summary.className = "card-options-summary";
+    summary.textContent = "⚙ Opciones";
+    const panel = document.createElement("div");
+    panel.className = "card-options-panel";
+    panel.append(
+      buildTenseControls(obj, onChange),
+      buildBorderControls(obj, onChange),
+      buildBackgroundControls(obj, onChange)
+    );
+    details.append(summary, panel);
+    return details;
   }
 
   function buildTenseControls(it, onChange){
@@ -1468,13 +1486,26 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     nav.append(l,r);
     const img=document.createElement("img");img.className="pic-image";img.alt="";
     const cap=document.createElement("p");cap.className="word-text";
-    const tenseControls = buildTenseControls(obj, ()=>{ draw().then(showPrintPreview); });
-    const borderControl = buildBorderControls(obj, ()=>{ draw().then(showPrintPreview); });
-    const controlsStack = document.createElement("div");
-    controlsStack.className = "card-controls-stack";
-    controlsStack.append(tenseControls, borderControl, bgControl);
-    const tenseMarker = document.createElement("span");
-    tenseMarker.className = "tense-marker";
+    const optionsMenu = buildCardOptionsMenu(obj, ()=>{ draw().then(showPrintPreview); });
+    const tenseLeft = document.createElement("button");
+    tenseLeft.type = "button";
+    tenseLeft.className = "tense-overlay-btn tense-overlay-btn--left";
+    tenseLeft.textContent = "⬅";
+    tenseLeft.title = "Pasado";
+    const tenseRight = document.createElement("button");
+    tenseRight.type = "button";
+    tenseRight.className = "tense-overlay-btn tense-overlay-btn--right";
+    tenseRight.textContent = "➡";
+    tenseRight.title = "Futuro";
+
+    tenseLeft.addEventListener("click", ()=>{
+      obj.tenseOverride = (obj.tenseOverride === "past") ? "none" : "past";
+      draw().then(showPrintPreview);
+    });
+    tenseRight.addEventListener("click", ()=>{
+      obj.tenseOverride = (obj.tenseOverride === "future") ? "none" : "future";
+      draw().then(showPrintPreview);
+    });
 
     async function draw(){
       const cur=obj.pictograms[obj.current]; const isTxt=typeof cur!=="object";
@@ -1513,28 +1544,8 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       el.style.borderWidth = `${Math.max(2, Math.round((parseFloat(cfg.borderWidthMm)||0) * MM_TO_PX))}px`;
       el.style.borderStyle = "solid";
       el.style.background = getItemBgColor(obj);
-      const borderPx = Math.max(0, (parseFloat(cfg.borderWidthMm) || 0) * MM_TO_PX);
-      const inset = Math.max(10, Math.round(borderPx + 10));
-      if(obj.tenseOverride === "past"){
-        tenseMarker.textContent = "⬅";
-        tenseMarker.dataset.position = "left";
-        tenseMarker.style.left = `${inset}px`;
-        tenseMarker.style.right = "auto";
-        tenseMarker.style.top = `${inset}px`;
-        tenseMarker.style.display = "inline-flex";
-        tenseMarker.style.fontSize = "24px";
-      }else if(obj.tenseOverride === "future"){
-        tenseMarker.textContent = "➡";
-        tenseMarker.dataset.position = "right";
-        tenseMarker.style.right = `${inset}px`;
-        tenseMarker.style.left = "auto";
-        tenseMarker.style.top = `${inset}px`;
-        tenseMarker.style.display = "inline-flex";
-        tenseMarker.style.fontSize = "24px";
-      }else{
-        tenseMarker.textContent = "";
-        tenseMarker.style.display = "none";
-      }
+      tenseLeft.classList.toggle("active", obj.tenseOverride === "past");
+      tenseRight.classList.toggle("active", obj.tenseOverride === "future");
       l.disabled=obj.current===0; r.disabled=obj.current===obj.pictograms.length-1;
     }
 
@@ -1546,7 +1557,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       if(e.key==="ArrowRight"){e.preventDefault();r.click();}
     });
 
-    el.append(nav, controlsStack, tenseMarker, img, cap); draw();
+    el.append(nav, optionsMenu, tenseLeft, tenseRight, img, cap); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;
