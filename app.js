@@ -1511,17 +1511,18 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     el.setAttribute("role","listitem");
     el.innerHTML="";
     const nav=document.createElement("div");nav.className="arrows-container";
-    const l=document.createElement("button");l.textContent="◀";l.className="arrow-btn card-nav-left";l.type="button";l.ariaLabel="Anterior pictograma";
-    const r=document.createElement("button");r.textContent="▶";r.className="arrow-btn card-nav-right";r.type="button";r.ariaLabel="Siguiente pictograma";
     const btnProps = document.createElement("button");
     btnProps.type = "button";
     btnProps.className = "arrow-btn card-options-trigger";
     btnProps.textContent = "⚙ Opciones";
     btnProps.title = "Opciones de esta tarjeta";
-    nav.append(l,btnProps,r);
+    nav.append(btnProps);
     const mediaWrap=document.createElement("div");
     mediaWrap.className = "card-media-wrap";
     const img=document.createElement("img");img.className="pic-image";img.alt="";
+    img.tabIndex = 0;
+    img.role = "button";
+    img.title = "Pulsa para cambiar al siguiente pictograma";
     const cap=document.createElement("p");cap.className="word-text";
     btnProps.addEventListener("click", ()=>{
       openCardPropsModal(obj, ()=>{ draw().then(showPrintPreview); });
@@ -1585,15 +1586,23 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       el.style.background = getItemBgColor(obj);
       tenseLeft.classList.toggle("active", obj.tenseOverride === "past");
       tenseRight.classList.toggle("active", obj.tenseOverride === "future");
-      l.disabled=obj.current===0; r.disabled=obj.current===obj.pictograms.length-1;
     }
 
-    l.onclick=()=>{if(obj.current>0){obj.current--;draw().then(showPrintPreview);}};
-    r.onclick=()=>{if(obj.current<obj.pictograms.length-1){obj.current++;draw().then(showPrintPreview);}};
-
-    nav.addEventListener('keydown', (e)=>{
-      if(e.key==="ArrowLeft"){e.preventDefault();l.click();}
-      if(e.key==="ArrowRight"){e.preventDefault();r.click();}
+    function cyclePic(back=false){
+      if(obj.pictograms.length <= 1) return;
+      if(back){
+        obj.current = (obj.current - 1 + obj.pictograms.length) % obj.pictograms.length;
+      }else{
+        obj.current = (obj.current + 1) % obj.pictograms.length;
+      }
+      draw().then(showPrintPreview);
+    }
+    img.addEventListener("click", (e)=>cyclePic(!!e.shiftKey));
+    img.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter" || e.key === " "){
+        e.preventDefault();
+        cyclePic(!!e.shiftKey);
+      }
     });
 
     mediaWrap.append(tenseLeft, tenseRight, img);
