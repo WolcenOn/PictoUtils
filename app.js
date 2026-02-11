@@ -1519,11 +1519,14 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     nav.append(btnProps);
     const mediaWrap=document.createElement("div");
     mediaWrap.className = "card-media-wrap";
+    mediaWrap.tabIndex = 0;
+    mediaWrap.role = "button";
+    mediaWrap.title = "Pulsa para cambiar al siguiente pictograma";
     const img=document.createElement("img");img.className="pic-image";img.alt="";
-    img.tabIndex = 0;
-    img.role = "button";
-    img.title = "Pulsa para cambiar al siguiente pictograma";
     const cap=document.createElement("p");cap.className="word-text";
+    cap.tabIndex = 0;
+    cap.role = "button";
+    cap.title = "Pulsa para cambiar al siguiente pictograma";
     btnProps.addEventListener("click", ()=>{
       openCardPropsModal(obj, ()=>{ draw().then(showPrintPreview); });
     });
@@ -1597,13 +1600,22 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       }
       draw().then(showPrintPreview);
     }
-    img.addEventListener("click", (e)=>cyclePic(!!e.shiftKey));
-    img.addEventListener("keydown", (e)=>{
+
+    function cycleFromEvent(e){
+      cyclePic(!!e.shiftKey);
+    }
+
+    mediaWrap.addEventListener("click", cycleFromEvent);
+    cap.addEventListener("click", cycleFromEvent);
+
+    function cycleFromKeyboard(e){
       if(e.key === "Enter" || e.key === " "){
         e.preventDefault();
         cyclePic(!!e.shiftKey);
       }
-    });
+    }
+    mediaWrap.addEventListener("keydown", cycleFromKeyboard);
+    cap.addEventListener("keydown", cycleFromKeyboard);
 
     mediaWrap.append(tenseLeft, tenseRight, img);
     el.append(nav, mediaWrap, cap); draw();
