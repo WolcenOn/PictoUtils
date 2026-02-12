@@ -1523,6 +1523,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     mediaWrap.role = "button";
     mediaWrap.title = "Pulsa para cambiar al siguiente pictograma";
     const img=document.createElement("img");img.className="pic-image";img.alt="";
+    const mediaText=document.createElement("div");mediaText.className="media-text";
     const cap=document.createElement("p");cap.className="word-text";
     cap.tabIndex = 0;
     cap.role = "button";
@@ -1557,16 +1558,21 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
         word=displayWord(cur.keywords?.[0]?.keyword || obj.word);
       }
       if(cfg.modeTextOnly||isTxt){
-        img.style.display="none";cap.style.display="block";
+        img.style.display="none";
+        mediaText.style.display="flex";
         if(cfg.writeLinesMode){
+          mediaText.textContent="";
           cap.innerHTML=
             `<div style='border-bottom:2px solid #000;width:92%;margin:0 auto'></div>`+
             `<div style='height:${cfg.linesDistance}px'></div>`+
             `<div style='border-bottom:2px solid #000;width:92%;margin:0 auto'></div>`;
+          cap.style.display="block";
         }else{
-          cap.textContent=word;cap.style.fontSize="1.1rem";
+          mediaText.textContent=word;
+          cap.style.display="none";
         }
       }else{
+        mediaText.style.display="none";
         img.src = pictoUrl(cur);
         img.style.display="block";
         if(cfg.writeLinesMode){
@@ -1617,7 +1623,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     mediaWrap.addEventListener("keydown", cycleFromKeyboard);
     cap.addEventListener("keydown", cycleFromKeyboard);
 
-    mediaWrap.append(tenseLeft, tenseRight, img);
+    mediaWrap.append(tenseLeft, tenseRight, img, mediaText);
     el.append(nav, mediaWrap, cap); draw();
   }
   function renderAll(){
