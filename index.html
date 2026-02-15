@@ -477,7 +477,27 @@
 <p class="hint">Ajusta el tamaño de las tarjetas en pantalla (no cambia el PDF).</p>
 </div>
 </div>
+<p class="hint">Cada tarjeta incluye controles de <strong>Fondo</strong> y <strong>Tiempo verbal</strong> para ajustar la impresión final.</p>
 <div class="grid-container" id="grid-container" role="list"></div>
+<template id="result-card-controls-template">
+<div class="result-control result-control--bg">
+<span class="result-control-label">Fondo:</span>
+<select class="result-select" data-role="bg-select">
+<option value="global">Usar color global</option>
+<option value="manual">Manual (selector de color)</option>
+<optgroup label="Código Fitzgerald"></optgroup>
+</select>
+<input class="result-color-picker" data-role="bg-picker" type="color" value="#ffffff"/>
+</div>
+<div class="result-control result-control--tense">
+<span class="result-control-label">Tiempo:</span>
+<div class="result-btn-group" data-role="tense-options">
+<button class="result-btn" data-value="none" type="button">Sin marca</button>
+<button class="result-btn" data-value="past" type="button">⬅ Pasado</button>
+<button class="result-btn" data-value="future" type="button">Futuro ➡</button>
+</div>
+</div>
+</template>
 </section>
 </main>
 <!-- ===========================
