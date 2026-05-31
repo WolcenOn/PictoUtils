@@ -1,0 +1,10 @@
+{
+  "categoria": "Educación",
+  "icono": "📚",
+  "etiquetas": ["pictogramas", "utilidades", "accesibilidad", "aula"],
+  "descripcion": "Conjunto de utilidades relacionadas con pictogramas y recursos visuales para el aula.",
+  "demo": "",
+  "destacado": false,
+  "orden": 3,
+  "ocultar": false
+}
