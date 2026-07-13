@@ -1,5 +1,5 @@
 /* Correcciones visuales seguras para las tarjetas de resultados.
-   Cargada después de styles.css mediante cabecera Link en despliegues compatibles. */
+   Cargar siempre después de styles.css. */
 
 .grid-item,
 .grid-item .card-media-wrap,
@@ -25,6 +25,26 @@
 
 .grid-item .word-text {
   line-height: 1.18;
+}
+
+/* Las flechas de pasado/futuro deben ser controles independientes y recibir el click. */
+.grid-item .tense-overlay-btn {
+  pointer-events: auto !important;
+  color: #111827 !important;
+  background: rgba(255,255,255,.82) !important;
+  border: 1px solid rgba(17,24,39,.20) !important;
+  border-radius: 999px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.grid-item .tense-overlay-btn.active {
+  background: #facc15 !important;
+  color: #111827 !important;
+  border-color: rgba(17,24,39,.35) !important;
 }
 
 /* Mantiene legibles los controles que sí van sobre panel oscuro, sin afectar al texto de la tarjeta. */
