@@ -1,0 +1,38 @@
+/* Correcciones visuales seguras para las tarjetas de resultados.
+   Cargada después de styles.css mediante cabecera Link en despliegues compatibles. */
+
+.grid-item,
+.grid-item .card-media-wrap,
+.grid-item .media-text,
+.grid-item .word-text,
+.wm-token,
+.wm-token .w {
+  font-family: var(--card-font, "Open Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif) !important;
+  font-weight: var(--card-font-weight, 400) !important;
+}
+
+/* Las tarjetas generadas suelen tener fondo claro/blanco; evitamos texto blanco heredado del tema oscuro. */
+.grid-item .media-text,
+.grid-item .word-text,
+.wm-token .w {
+  color: #111827 !important;
+  text-shadow: none !important;
+}
+
+.grid-item .media-text {
+  background: transparent !important;
+}
+
+.grid-item .word-text {
+  line-height: 1.18;
+}
+
+/* Mantiene legibles los controles que sí van sobre panel oscuro, sin afectar al texto de la tarjeta. */
+.grid-item .arrows-container,
+.grid-item .card-options-trigger,
+.grid-item .result-control,
+.grid-item .result-select,
+.grid-item .result-btn,
+.grid-item .result-control-label {
+  font-family: "Open Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
