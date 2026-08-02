@@ -419,6 +419,64 @@ externalFonts:[],
     return _arasaacLogoBmpPromise;
   }
 
+  const FITZGERALD_COLORS = [
+    { label: "🟧 Sustantivos (naranja)", value: "#e67e22" },
+    { label: "🟩 Verbos (verde)", value: "#2ecc71" },
+    { label: "🟦 Cualidades/Adjetivos (azul)", value: "#2471a3" },
+    { label: "🟪 Expresiones sociales/Pronombres (morado)", value: "#6c3483" },
+    { label: "🟨 Miscelánea/Adverbios (amarillo)", value: "#f4d03f" },
+  ];
+
+  function getItemBgColor(item){
+    if(item?.bgOverride?.mode === "manual") return item.bgOverride.value || cfg.bgColor;
+    if(item?.bgOverride?.mode === "fitzgerald") return item.bgOverride.value || cfg.bgColor;
+    return cfg.bgColor || "#ffffff";
+  }
+
+  function drawTenseMarker(ctx, item, width, height, borderPx){
+    const mode = item?.tenseOverride || "none";
+    if(mode === "none") return;
+
+    const markerRadius = Math.max(12, Math.round(Math.min(width, height) * 0.065));
+    const outerInset = Math.max(10, Math.round((borderPx || 0) + 10));
+    const cx = mode === "past"
+      ? (outerInset + markerRadius)
+      : (width - outerInset - markerRadius);
+    const cy = outerInset + markerRadius;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.strokeStyle = "rgba(17,17,17,0.85)";
+    ctx.lineWidth = Math.max(1.5, markerRadius * 0.16);
+    ctx.beginPath();
+    ctx.arc(cx, cy, markerRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    const wing = markerRadius * 0.95;
+    const tip = markerRadius * 0.58;
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = Math.max(2, markerRadius * 0.2);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    if(mode === "past"){
+      ctx.moveTo(cx + wing * 0.45, cy);
+      ctx.lineTo(cx - wing * 0.5, cy);
+      ctx.lineTo(cx - wing * 0.18, cy - tip * 0.55);
+      ctx.moveTo(cx - wing * 0.5, cy);
+      ctx.lineTo(cx - wing * 0.18, cy + tip * 0.55);
+    }else{
+      ctx.moveTo(cx - wing * 0.45, cy);
+      ctx.lineTo(cx + wing * 0.5, cy);
+      ctx.lineTo(cx + wing * 0.18, cy - tip * 0.55);
+      ctx.moveTo(cx + wing * 0.5, cy);
+      ctx.lineTo(cx + wing * 0.18, cy + tip * 0.55);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   async function canvasBlob({url,word,picto,item,drawBorder=true,drawWord=true,drawLines=true}){
     const bmp=await createImageBitmap(await (await fetch(url)).blob());
     const m=20;
@@ -444,7 +502,7 @@ externalFonts:[],
     cv.height=bmp.height+extra+m*2;
     const ctx=cv.getContext("2d",{alpha:true});
 
-    ctx.fillStyle=cfg.bgColor;
+    ctx.fillStyle=getItemBgColor(item);
     ctx.fillRect(0,0,cv.width,cv.height);
 
     if(drawBorder){
@@ -525,6 +583,10 @@ externalFonts:[],
       }
     }
 
+    const bwMm = (typeof cfg.borderWidthMm!=="undefined") ? (parseFloat(cfg.borderWidthMm)||0) : 0;
+    const bwPx = bwMm * MM_TO_PX;
+    drawTenseMarker(ctx, item, cv.width, cv.height, bwPx);
+
     if(drawLinesEffective){
       const y1=m+bmp.height+2,y2=y1+cfg.linesDistance;
       ctx.lineWidth=2;ctx.strokeStyle="#000";
@@ -551,7 +613,7 @@ externalFonts:[],
   async function textCardURL(word="", item, drawBorder=true){
     const w=500,h=300,cv=document.createElement("canvas");cv.width=w;cv.height=h;
     const ctx=cv.getContext("2d",{alpha:true});
-    ctx.fillStyle=cfg.bgColor;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle=getItemBgColor(item);ctx.fillRect(0,0,w,h);
     if(drawBorder){
       const bwMm = (typeof cfg.borderWidthMm!=="undefined") ? (parseFloat(cfg.borderWidthMm)||0) : 0;
       const bw = bwMm * MM_TO_PX;
@@ -563,6 +625,9 @@ externalFonts:[],
         ctx.strokeRect(inset, inset, cv.width - bw, cv.height - bw);
       }
     }
+    const bwMm = (typeof cfg.borderWidthMm!=="undefined") ? (parseFloat(cfg.borderWidthMm)||0) : 0;
+    const bwPx = bwMm * MM_TO_PX;
+    drawTenseMarker(ctx, item, w, h, bwPx);
     if(cfg.writeLinesMode){
       const y1=h/2-10,y2=y1+cfg.linesDistance;ctx.lineWidth=3;ctx.strokeStyle="#000";
       ctx.beginPath();ctx.moveTo(40,y1);ctx.lineTo(w-40,y1);
@@ -619,7 +684,7 @@ externalFonts:[],
     const cont = $("grid-container");
     if(!cont) return;
     const v = cfg.resultCardSize || "md";
-    const px = (v==="sm") ? 180 : (v==="lg" ? 280 : 220);
+    const px = (v==="sm") ? 140 : (v==="lg" ? 240 : 180);
     cont.style.setProperty("--card-min", px + "px");
   }
 
@@ -1125,7 +1190,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     const sel = $("resultSizeSelect");
     if(!sel) return;
     const v = sel.value || "md";
-    const map = { xs:160, sm:100, md:200, lg:400 }; // min card width in px
+    const map = { xs:120, sm:140, md:180, lg:240 }; // min card width in px
     const min = map[v] || 100;
     document.documentElement.style.setProperty('--card-min', min + "px");
   }
@@ -1223,7 +1288,7 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
   }
 
   async function buildDownload(it){
-    const cur  = it.pictograms[cur];
+    const cur  = it.pictograms[it.current];
     const word = displayWord(it.word);
     let blob;
     if (cfg.modeTextOnly || typeof cur !== 'object'){
@@ -1248,9 +1313,10 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
   }
 
   function buildBorderControls(it, onChange){
-    const wrap = document.createElement("div"); wrap.className = "row"; wrap.style.marginTop = "6px";
-    const lbl = document.createElement("label"); lbl.textContent = "Borde:"; lbl.style.fontWeight = "600";
+    const wrap = document.createElement("div"); wrap.className = "row card-option-row";
+    const lbl = document.createElement("label"); lbl.className = "card-option-label"; lbl.textContent = "Borde:";
     const sel = document.createElement("select");
+    sel.className = "result-select card-option-select";
     sel.innerHTML = `
       <option value="auto">Auto</option>
       <option value="global">Global</option>
@@ -1261,11 +1327,11 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
       <option value="class:social">Social (morado)</option>
       <option value="manual">Color manual…</option>
     `;
-    sel.style.minWidth = "180px";
+    sel.style.minWidth = "0";
     const picker = document.createElement("input");
     picker.type = "color";
     picker.value = it.borderOverride?.mode==="manual" ? (it.borderOverride.value || "#000000") : "#000000";
-    picker.style.height = "36px";
+    picker.className = "result-color-picker";
     picker.style.display = (it.borderOverride?.mode==="manual") ? "" : "none";
     picker.addEventListener("change", ()=>{
       it.borderOverride = { mode:"manual", value: picker.value }; onChange();
@@ -1290,17 +1356,200 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
     return wrap;
   }
 
+  function buildBackgroundControls(it, onChange){
+    const wrap = document.createElement("div");
+    wrap.className = "row card-option-row";
+
+    const lbl = document.createElement("label");
+    lbl.className = "card-option-label";
+    lbl.textContent = "Fondo:";
+
+    const sel = document.createElement("select");
+    sel.className = "result-select card-option-select";
+    sel.style.minWidth = "0";
+    sel.innerHTML = `
+      <option value="global">Usar color global</option>
+      <option value="manual">Manual (selector de color)</option>
+      <optgroup label="Código Fitzgerald">
+        ${FITZGERALD_COLORS.map(c=>`<option value="fitz:${c.value}">${c.label}</option>`).join("")}
+      </optgroup>
+    `;
+
+    const picker = document.createElement("input");
+    picker.type = "color";
+    picker.className = "result-color-picker";
+    picker.value = it.bgOverride?.mode === "manual" ? (it.bgOverride.value || cfg.bgColor || "#ffffff") : (cfg.bgColor || "#ffffff");
+
+    function refresh(){
+      if(!it.bgOverride || it.bgOverride.mode === "global"){
+        sel.value = "global";
+      }else if(it.bgOverride.mode === "manual"){
+        sel.value = "manual";
+      }else if(it.bgOverride.mode === "fitzgerald"){
+        sel.value = `fitz:${it.bgOverride.value}`;
+      }else{
+        sel.value = "global";
+      }
+      picker.style.display = sel.value === "manual" ? "" : "none";
+    }
+
+    sel.addEventListener("change", ()=>{
+      const v = sel.value;
+      if(v === "global") it.bgOverride = { mode:"global" };
+      else if(v === "manual") it.bgOverride = { mode:"manual", value: picker.value || cfg.bgColor || "#ffffff" };
+      else if(v.startsWith("fitz:")) it.bgOverride = { mode:"fitzgerald", value: v.split(":")[1] };
+      onChange();
+      refresh();
+    });
+
+    picker.addEventListener("change", ()=>{
+      it.bgOverride = { mode:"manual", value: picker.value };
+      onChange();
+      refresh();
+    });
+
+    wrap.append(lbl, sel, picker);
+    refresh();
+    return wrap;
+  }
+
+  let cardPropsModal = null;
+  function ensureCardPropsModal(){
+    if(cardPropsModal) return cardPropsModal;
+    const overlay = document.createElement("div");
+    overlay.className = "card-props-overlay";
+    overlay.style.display = "none";
+
+    const box = document.createElement("div");
+    box.className = "card-props-content";
+
+    const head = document.createElement("div");
+    head.className = "card-props-header";
+    const title = document.createElement("strong");
+    title.textContent = "Opciones de tarjeta";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "btn-mini";
+    closeBtn.textContent = "Cerrar";
+
+    const body = document.createElement("div");
+    body.className = "card-props-body";
+
+    head.append(title, closeBtn);
+    box.append(head, body);
+    overlay.append(box);
+    document.body.append(overlay);
+
+    function close(){ overlay.style.display = "none"; }
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e)=>{ if(e.target === overlay) close(); });
+
+    cardPropsModal = { overlay, title, body, close };
+    return cardPropsModal;
+  }
+
+  function openCardPropsModal(item, onChange){
+    const m = ensureCardPropsModal();
+    m.title.textContent = `Opciones: ${displayWord(item.word || "Tarjeta")}`;
+    m.body.innerHTML = "";
+    const update = ()=>onChange();
+    m.body.append(
+      buildTenseControls(item, update),
+      buildBorderControls(item, update),
+      buildBackgroundControls(item, update)
+    );
+    m.overlay.style.display = "flex";
+  }
+
+  function buildTenseControls(it, onChange){
+    const wrap = document.createElement("div");
+    wrap.className = "row card-option-row";
+
+    const lbl = document.createElement("label");
+    lbl.className = "card-option-label";
+    lbl.textContent = "Tiempo:";
+
+    const group = document.createElement("div");
+    group.className = "result-btn-group tense-icon-group";
+
+    const options = [
+      { value:"past", label:"⬅", title:"Pasado" },
+      { value:"future", label:"➡", title:"Futuro" }
+    ];
+
+    function paintActive(){
+      const current = it.tenseOverride || "none";
+      group.querySelectorAll("button").forEach((btn)=>{
+        const on = btn.dataset.value === current;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+
+    options.forEach((opt)=>{
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tense-icon-btn";
+      btn.textContent = opt.label;
+      btn.title = opt.title;
+      btn.dataset.value = opt.value;
+      btn.addEventListener("click", ()=>{
+        const current = it.tenseOverride || "none";
+        it.tenseOverride = (current === opt.value) ? "none" : opt.value;
+        paintActive();
+        onChange();
+      });
+      group.append(btn);
+    });
+
+    wrap.append(lbl, group);
+    paintActive();
+    return wrap;
+  }
+
   function renderItem(el,obj){
     el.setAttribute("role","listitem");
     el.innerHTML="";
     const nav=document.createElement("div");nav.className="arrows-container";
-    const l=document.createElement("button");l.textContent="◀";l.className="arrow-btn";l.type="button";l.ariaLabel="Anterior pictograma";
-    const d=document.createElement("button");d.textContent="⬇";d.title="Descargar PNG";d.className="arrow-btn";d.type="button";d.ariaLabel="Descargar PNG";
-    const r=document.createElement("button");r.textContent="▶";r.className="arrow-btn";r.type="button";r.ariaLabel="Siguiente pictograma";
-    nav.append(l,d,r);
+    const btnProps = document.createElement("button");
+    btnProps.type = "button";
+    btnProps.className = "arrow-btn card-options-trigger";
+    btnProps.textContent = "⚙ Opciones";
+    btnProps.title = "Opciones de esta tarjeta";
+    nav.append(btnProps);
+    const mediaWrap=document.createElement("div");
+    mediaWrap.className = "card-media-wrap";
+    mediaWrap.tabIndex = 0;
+    mediaWrap.role = "button";
+    mediaWrap.title = "Pulsa para cambiar al siguiente pictograma";
     const img=document.createElement("img");img.className="pic-image";img.alt="";
+    const mediaText=document.createElement("div");mediaText.className="media-text";
     const cap=document.createElement("p");cap.className="word-text";
-    const controls = buildBorderControls(obj, ()=>{ draw().then(showPrintPreview); });
+    cap.tabIndex = 0;
+    cap.role = "button";
+    cap.title = "Pulsa para cambiar al siguiente pictograma";
+    btnProps.addEventListener("click", ()=>{
+      openCardPropsModal(obj, ()=>{ draw().then(showPrintPreview); });
+    });
+    const tenseLeft = document.createElement("button");
+    tenseLeft.type = "button";
+    tenseLeft.className = "tense-overlay-btn tense-overlay-btn--left";
+    tenseLeft.textContent = "⬅";
+    tenseLeft.title = "Pasado";
+    const tenseRight = document.createElement("button");
+    tenseRight.type = "button";
+    tenseRight.className = "tense-overlay-btn tense-overlay-btn--right";
+    tenseRight.textContent = "➡";
+    tenseRight.title = "Futuro";
+
+    tenseLeft.addEventListener("click", ()=>{
+      obj.tenseOverride = (obj.tenseOverride === "past") ? "none" : "past";
+      draw().then(showPrintPreview);
+    });
+    tenseRight.addEventListener("click", ()=>{
+      obj.tenseOverride = (obj.tenseOverride === "future") ? "none" : "future";
+      draw().then(showPrintPreview);
+    });
 
     async function draw(){
       const cur=obj.pictograms[obj.current]; const isTxt=typeof cur!=="object";
@@ -1309,16 +1558,21 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
         word=displayWord(cur.keywords?.[0]?.keyword || obj.word);
       }
       if(cfg.modeTextOnly||isTxt){
-        img.style.display="none";cap.style.display="block";
+        img.style.display="none";
+        mediaText.style.display="flex";
         if(cfg.writeLinesMode){
+          mediaText.textContent="";
           cap.innerHTML=
             `<div style='border-bottom:2px solid #000;width:92%;margin:0 auto'></div>`+
             `<div style='height:${cfg.linesDistance}px'></div>`+
             `<div style='border-bottom:2px solid #000;width:92%;margin:0 auto'></div>`;
+          cap.style.display="block";
         }else{
-          cap.textContent=word;cap.style.fontSize="1.1rem";
+          mediaText.textContent=word;
+          cap.style.display="none";
         }
       }else{
+        mediaText.style.display="none";
         img.src = pictoUrl(cur);
         img.style.display="block";
         if(cfg.writeLinesMode){
@@ -1327,28 +1581,50 @@ $("writeLinesMode").checked=cfg.writeLinesMode;
             `<div style='height:${cfg.linesDistance}px'></div>`+
             `<div style='border-bottom:2px solid #000;width:92%;margin:0 auto'></div>`;
           cap.style.display="block";
-        }else if(cfg.fontSize===0){
-          cap.style.display="none";
         }else{
-          cap.textContent=word;cap.style.display="block";cap.style.fontSize="1.05rem";
+          cap.textContent = word;
+          cap.style.display = "block";
+          cap.style.fontSize = (cfg.fontSize===0) ? "0.95rem" : "1.02rem";
         }
       }
       const curPic = isTxt? null : cur;
       const col = effectiveBorderColor(word, curPic, obj);
       el.style.borderColor = col;
-      l.disabled=obj.current===0; r.disabled=obj.current===obj.pictograms.length-1;
+      el.style.borderWidth = `${Math.max(2, Math.round((parseFloat(cfg.borderWidthMm)||0) * MM_TO_PX))}px`;
+      el.style.borderStyle = "solid";
+      el.style.background = getItemBgColor(obj);
+      tenseLeft.classList.toggle("active", obj.tenseOverride === "past");
+      tenseRight.classList.toggle("active", obj.tenseOverride === "future");
     }
 
-    l.onclick=()=>{if(obj.current>0){obj.current--;draw().then(showPrintPreview);}};
-    r.onclick=()=>{if(obj.current<obj.pictograms.length-1){obj.current++;draw().then(showPrintPreview);}};
-    d.onclick=()=>buildDownload(obj);
+    function cyclePic(back=false){
+      if(obj.pictograms.length <= 1) return;
+      if(back){
+        obj.current = (obj.current - 1 + obj.pictograms.length) % obj.pictograms.length;
+      }else{
+        obj.current = (obj.current + 1) % obj.pictograms.length;
+      }
+      draw().then(showPrintPreview);
+    }
 
-    nav.addEventListener('keydown', (e)=>{
-      if(e.key==="ArrowLeft"){e.preventDefault();l.click();}
-      if(e.key==="ArrowRight"){e.preventDefault();r.click();}
-    });
+    function cycleFromEvent(e){
+      cyclePic(!!e.shiftKey);
+    }
 
-    el.append(nav,img,cap,controls); draw();
+    mediaWrap.addEventListener("click", cycleFromEvent);
+    cap.addEventListener("click", cycleFromEvent);
+
+    function cycleFromKeyboard(e){
+      if(e.key === "Enter" || e.key === " "){
+        e.preventDefault();
+        cyclePic(!!e.shiftKey);
+      }
+    }
+    mediaWrap.addEventListener("keydown", cycleFromKeyboard);
+    cap.addEventListener("keydown", cycleFromKeyboard);
+
+    mediaWrap.append(tenseLeft, tenseRight, img, mediaText);
+    el.append(nav, mediaWrap, cap); draw();
   }
   function renderAll(){
     const cont=$("grid-container"); if(!cont) return;
@@ -1415,10 +1691,6 @@ async function showPrintPreview(){
   const innerW = pv.width  - 2*Mpx;
   const innerH = pv.height - 2*Mpx;
 
-  // Fondo de la tarjeta (color de fondo configurado)
-  ctx.fillStyle = cfg.bgColor || "#ffffff";
-  ctx.fillRect(innerX, innerY, innerW, innerH);
-
   // =========================================================
   // 5) BORDE (ancho en mm + color auto/manual)
   // =========================================================
@@ -1426,6 +1698,10 @@ async function showPrintPreview(){
   const it0 = items?.[0] || null;
   const cur0 = it0 ? it0.pictograms?.[it0.current] : null;
   const word0 = it0 ? displayWord(it0.word || "") : "";
+
+  // Fondo de la tarjeta (color de fondo configurado)
+  ctx.fillStyle = getItemBgColor(it0);
+  ctx.fillRect(0, 0, pv.width, pv.height);
 
   const bwMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
   const bwPx = bwMm * pxPerMm;
@@ -1447,6 +1723,8 @@ async function showPrintPreview(){
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5,0.5,pv.width-1,pv.height-1);
   }
+
+  drawTenseMarker(ctx, it0, pv.width, pv.height, bwPx);
 
   // Si no hay resultados aún, no podemos dibujar pictograma/texto real.
   if(!items || !items.length){
@@ -1949,9 +2227,9 @@ const live=$("resultados-hint");
           const cell=document.createElement("div"); cell.className="grid-item"; cont.appendChild(cell);
           try{
             const pics = await searchWithResolution(raw, w, cfg.lang);
-            items.push({pictograms:pics,current:0,word:w, borderOverride:{mode:"auto"}});
+            items.push({pictograms:pics,current:0,word:w, borderOverride:{mode:"auto"}, bgOverride:{mode:"global"}, tenseOverride:"none"});
           }catch{
-            items.push({pictograms:["TEXTO"],current:0,word:w, borderOverride:{mode:"auto"}});
+            items.push({pictograms:["TEXTO"],current:0,word:w, borderOverride:{mode:"auto"}, bgOverride:{mode:"global"}, tenseOverride:"none"});
           }
           renderItem(cell,items[items.length-1]);
 }
@@ -2019,8 +2297,8 @@ async function renderCardCanvasForMm(item){
   const innerW = W - 2*Mpx, innerH = H - 2*Mpx;
 
   // Fondo tarjeta
-  ctx.fillStyle = cfg.bgColor || "#ffffff";
-  ctx.fillRect(innerX, innerY, innerW, innerH);
+  ctx.fillStyle = getItemBgColor(item);
+  ctx.fillRect(0, 0, W, H);
 
   // Borde (grosor + color)
   const bwMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
@@ -2032,6 +2310,8 @@ async function renderCardCanvasForMm(item){
     const inset = ctx.lineWidth/2;
     ctx.strokeRect(inset, inset, W - ctx.lineWidth, H - ctx.lineWidth);
   }
+
+  drawTenseMarker(ctx, item, W, H, bwPx);
 
   // Si no hay item, devuelve el lienzo “vacío”
   if(!item) return c;
