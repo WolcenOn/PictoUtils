@@ -11,6 +11,7 @@
     count: 6, perCard: 6, layout: "random", shape: "rect", content: "mixed",
     widthMm: 100, heightMm: 70, minSizeMm: 16, maxSizeMm: 28,
     minFontPx: 22, maxFontPx: 38, minRotation: -18, maxRotation: 18,
+    itemGapMm: 3, edgePaddingMm: 5,
     fontMode: "random", allowRepeats: false, seed: ""
   };
   G.byId = (id) => document.getElementById(id);
