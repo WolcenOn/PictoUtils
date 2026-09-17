@@ -8,6 +8,7 @@
     "game-cards-render.js",
     "game-cards-ui.js",
     "game-cards-size-ui.js",
+    "game-cards-print-ui.js",
     "game-cards-ui-enhance.js"
   ];
   let index = 0;
