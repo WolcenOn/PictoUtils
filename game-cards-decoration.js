@@ -205,9 +205,7 @@
     if (!candidates.length) return;
     const rng = G.rngFromSeed(`texture-content-${seed}`);
     const order = G.shuffle(candidates, rng);
-    cards.forEach((card, index) => {
-      card.textureForegroundSource = order[index % order.length];
-    });
+    cards.forEach((card, index) => { card.textureForegroundSource = order[index % order.length]; });
   }
 
   const originalCurrentPool = G.currentPool;
@@ -216,7 +214,13 @@
       const pool = originalCurrentPool();
       if (pool.length) return pool;
       if (G.cfg.textureCardContentMode === "texture-only" && G.cfg.textureEnabled && G.textureLibrary.length) {
-        return [{ id: "texture-only-placeholder", word: "", picto: null, visualUrl: "", source: "texture" }];
+        return [{
+          id: "texture-only-placeholder",
+          word: "",
+          picto: null,
+          visualUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==",
+          source: "texture"
+        }];
       }
       return pool;
     };
