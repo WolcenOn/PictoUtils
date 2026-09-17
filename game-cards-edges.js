@@ -24,102 +24,111 @@
     return { w: Math.max(8, metrics.width / scale + 2.5), h: Math.max(6, height + 2.5) };
   }
 
-  function rotatedBox(w, h, deg) {
-    const r = deg * Math.PI / 180;
-    const c = Math.abs(Math.cos(r));
-    const s = Math.abs(Math.sin(r));
-    return { w: w * c + h * s, h: w * s + h * c };
+  function normalizeAngle(deg) {
+    let a = deg;
+    while (a > 180) a -= 360;
+    while (a <= -180) a += 360;
+    return a;
   }
 
-  function rectFor(p, halo) {
-    const box = rotatedBox(p.w, p.h, p.rotation || 0);
+  function orientedRect(p, halo) {
     const pad = Math.max(0, halo || 0);
-    return {
-      left: p.x - box.w / 2 - pad,
-      right: p.x + box.w / 2 + pad,
-      top: p.y - box.h / 2 - pad,
-      bottom: p.y + box.h / 2 + pad
-    };
-  }
-
-  function placementCorners(p, halo) {
-    const pad = Math.max(0, halo || 0);
-    const hw = p.w / 2 + pad, hh = p.h / 2 + pad;
+    const hx = Math.max(.1, p.w / 2 + pad);
+    const hy = Math.max(.1, p.h / 2 + pad);
     const r = (p.rotation || 0) * Math.PI / 180;
-    const c = Math.cos(r), si = Math.sin(r);
-    return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y]) => [
-      p.x + x*c - y*si,
-      p.y + x*si + y*c
-    ]);
+    const ax = { x: Math.cos(r), y: Math.sin(r) };
+    const ay = { x: -Math.sin(r), y: Math.cos(r) };
+    const corners = [
+      { x: p.x + ax.x * hx + ay.x * hy, y: p.y + ax.y * hx + ay.y * hy },
+      { x: p.x - ax.x * hx + ay.x * hy, y: p.y - ax.y * hx + ay.y * hy },
+      { x: p.x - ax.x * hx - ay.x * hy, y: p.y - ax.y * hx - ay.y * hy },
+      { x: p.x + ax.x * hx - ay.x * hy, y: p.y + ax.y * hx - ay.y * hy }
+    ];
+    return { corners, axes: [ax, ay] };
+  }
+
+  function project(corners, axis) {
+    let min = Infinity, max = -Infinity;
+    for (const p of corners) {
+      const value = p.x * axis.x + p.y * axis.y;
+      min = Math.min(min, value);
+      max = Math.max(max, value);
+    }
+    return { min, max };
+  }
+
+  function obbOverlaps(a, b) {
+    const axes = [a.axes[0], a.axes[1], b.axes[0], b.axes[1]];
+    for (const axis of axes) {
+      const pa = project(a.corners, axis);
+      const pb = project(b.corners, axis);
+      if (pa.max <= pb.min || pb.max <= pa.min) return false;
+    }
+    return true;
   }
 
   function pointInsideShape(x, y, W, H, shape) {
     if (shape === "rect") return x >= 0 && x <= W && y >= 0 && y <= H;
     if (shape === "oval") return typeof G.pointInEllipse === "function" ? G.pointInEllipse(x, y, W, H, 0) : true;
-    const polygon = shape === "oct" ? G.octVertices(W, H, 0) : G.hexVertices(W, H, 0);
-    return typeof G.pointInPolygon === "function" ? G.pointInPolygon(x, y, polygon) : true;
+    const vertices = shape === "oct" ? G.octVertices(W, H, 0) : G.hexVertices(W, H, 0);
+    return typeof G.pointInPolygon === "function" ? G.pointInPolygon(x, y, vertices) : true;
   }
 
-  function placementInsideShape(p, halo, W, H, shape) {
-    return placementCorners(p, halo).every(([x,y]) => pointInsideShape(x, y, W, H, shape));
+  function obbInsideShape(obb, W, H, shape) {
+    return obb.corners.every((p) => pointInsideShape(p.x, p.y, W, H, shape));
   }
 
-  function overlaps(a, b) {
-    return !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
-  }
-
-  function normalizeReadableAngle(deg) {
-    let a = deg;
-    while (a > 180) a -= 360;
-    while (a <= -180) a += 360;
-    if (a > 90) a -= 180;
-    if (a < -90) a += 180;
-    return a;
-  }
-
-  function edgesFromVertices(vertices) {
+  function edgesFromVertices(vertices, W, H) {
+    const cx = W / 2, cy = H / 2;
     return vertices.map((a, i) => {
       const b = vertices[(i + 1) % vertices.length];
       const dx = b[0] - a[0], dy = b[1] - a[1];
       const length = Math.max(.001, Math.hypot(dx, dy));
       const ux = dx / length, uy = dy / length;
+      let nx = -uy, ny = ux;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      if ((cx - mx) * nx + (cy - my) * ny < 0) {
+        nx *= -1;
+        ny *= -1;
+      }
+      // El eje Y local del elemento apunta hacia su "parte de abajo".
+      // Elegimos el ángulo para que ese eje apunte SIEMPRE hacia fuera,
+      // es decir, hacia el borde exterior de la tarjeta.
+      const outwardAngle = normalizeAngle(Math.atan2(nx, -ny) * 180 / Math.PI);
       return {
         x1: a[0], y1: a[1], x2: b[0], y2: b[1],
-        ux, uy, nx: -uy, ny: ux, length,
-        angle: normalizeReadableAngle(Math.atan2(dy, dx) * 180 / Math.PI)
+        ux, uy, nx, ny, length, angle: outwardAngle
       };
     });
   }
 
   function ovalEdges(w, h, segments) {
-    const n = Math.max(8, Math.min(28, segments || 12));
+    const n = Math.max(8, Math.min(32, segments || 12));
     const vertices = [];
     for (let i = 0; i < n; i++) {
-      const t = -Math.PI / 2 + (Math.PI * 2 * i / n);
-      vertices.push([w / 2 + (w / 2) * Math.cos(t), h / 2 + (h / 2) * Math.sin(t)]);
+      const t = -Math.PI / 2 + Math.PI * 2 * i / n;
+      vertices.push([w / 2 + w / 2 * Math.cos(t), h / 2 + h / 2 * Math.sin(t)]);
     }
-    return edgesFromVertices(vertices);
+    return edgesFromVertices(vertices, w, h);
   }
 
   function shapeEdges(shape, w, h, itemCount) {
-    if (shape === "hex") return edgesFromVertices(G.hexVertices(w, h, 0));
-    if (shape === "oct") return edgesFromVertices(G.octVertices(w, h, 0));
+    if (shape === "hex") return edgesFromVertices(G.hexVertices(w, h, 0), w, h);
+    if (shape === "oct") return edgesFromVertices(G.octVertices(w, h, 0), w, h);
     if (shape === "oval") return ovalEdges(w, h, Math.max(12, itemCount * 2));
-    return edgesFromVertices([[0, 0], [w, 0], [w, h], [0, h]]);
+    return edgesFromVertices([[0, 0], [w, 0], [w, h], [0, h]], w, h);
   }
 
   function distributeCounts(totalItems, edges) {
     const counts = new Array(edges.length).fill(0);
     if (!totalItems || !edges.length) return counts;
-
-    if (totalItems < edges.length) {
+    if (totalItems <= edges.length) {
       for (let i = 0; i < totalItems; i++) {
         const idx = Math.floor((i + .5) * edges.length / totalItems) % edges.length;
         counts[idx]++;
       }
       return counts;
     }
-
     counts.fill(1);
     let remaining = totalItems - edges.length;
     while (remaining-- > 0) {
@@ -133,18 +142,19 @@
     return counts;
   }
 
-  function fitPlacement(p, maxAlong, maxAcross) {
+  function fitPlacement(p, maxAlong, maxAcross, scaleFactor) {
+    const factor = Math.max(.35, Math.min(1, scaleFactor || 1));
     const along = Math.max(4, maxAlong);
     const across = Math.max(4, maxAcross);
     if (p.kind === "visual") {
-      const size = Math.max(3, Math.min(p.baseVisualSizeMm || p.visualSizeMm || 12, along, across));
+      const base = (p.baseVisualSizeMm || p.visualSizeMm || 12) * factor;
+      const size = Math.max(3, Math.min(base, along, across));
       p.visualSizeMm = size;
       p.w = size;
       p.h = size;
       return;
     }
-
-    let fontPx = Math.max(8, Math.round(p.baseFontPx || p.fontPx || 18));
+    let fontPx = Math.max(8, Math.round((p.baseFontPx || p.fontPx || 18) * factor));
     let bounds = textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", fontPx);
     while ((bounds.w > along || bounds.h > across) && fontPx > 8) {
       fontPx--;
@@ -156,47 +166,47 @@
   }
 
   function shrinkPlacement(p, factor) {
-    const f = Math.max(.6, Math.min(.95, factor || .9));
+    const f = Math.max(.55, Math.min(.95, factor || .9));
     if (p.kind === "visual") {
-      const size = Math.max(3, (p.visualSizeMm || p.w || 10) * f);
+      const size = Math.max(2.5, (p.visualSizeMm || p.w || 10) * f);
       p.visualSizeMm = size;
       p.w = size;
       p.h = size;
       return;
     }
-    const fontPx = Math.max(8, Math.floor((p.fontPx || 8) * f));
+    const fontPx = Math.max(7, Math.floor((p.fontPx || 8) * f));
     const b = textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", fontPx);
     p.fontPx = fontPx;
     p.w = b.w;
     p.h = b.h;
   }
 
-  function placeOneOnEdge(p, edge, slotIndex, slotCount, occupied, shape, W, H) {
+  function placeOneOnEdge(p, edge, slotIndex, slotCount, occupied, shape, W, H, scaleFactor) {
     const gap = Math.max(0, G.cfg.itemGapMm || 0);
     const edgePad = Math.max(0, G.cfg.edgePaddingMm || 0);
     const halo = gap / 2;
-    const vertexPad = Math.min(edge.length * .22, Math.max(3, gap * 1.3));
-    const usableLength = Math.max(6, edge.length - vertexPad * 2);
+    const vertexPad = Math.min(edge.length * .16, Math.max(2, gap));
+    const usableLength = Math.max(5, edge.length - vertexPad * 2);
     const slotLength = usableLength / Math.max(1, slotCount);
-    const maxAcross = Math.max(7, Math.min(W, H) * .34);
+    const maxAcross = Math.max(7, Math.min(W, H) * .36);
 
     p.rotation = edge.angle;
-    fitPlacement(p, Math.max(4, slotLength - gap), maxAcross);
+    fitPlacement(p, Math.max(4, slotLength - gap), maxAcross, scaleFactor);
 
     const distance = vertexPad + slotLength * (slotIndex + .5);
     const bx = edge.x1 + edge.ux * distance;
     const by = edge.y1 + edge.uy * distance;
 
-    for (let shrinkRound = 0; shrinkRound < 8; shrinkRound++) {
+    for (let shrinkRound = 0; shrinkRound < 10; shrinkRound++) {
       const baseOffset = edgePad + p.h / 2 + halo;
-      const maxPush = Math.max(baseOffset, Math.min(W, H) * .32);
-      for (let push = baseOffset; push <= maxPush; push += 1.25) {
+      const maxPush = Math.max(baseOffset, Math.min(W, H) * .40);
+      for (let push = baseOffset; push <= maxPush; push += 1) {
         p.x = bx + edge.nx * push;
         p.y = by + edge.ny * push;
-        const rect = rectFor(p, halo);
-        if (!placementInsideShape(p, halo, W, H, shape)) continue;
-        if (occupied.some((other) => overlaps(rect, other))) continue;
-        occupied.push(rect);
+        const obb = orientedRect(p, halo);
+        if (!obbInsideShape(obb, W, H, shape)) continue;
+        if (occupied.some((other) => obbOverlaps(obb, other))) continue;
+        occupied.push(obb);
         return true;
       }
       shrinkPlacement(p, .88);
@@ -204,17 +214,27 @@
     return false;
   }
 
-  function placeAlongEdges(card, seed) {
+  function snapshotPlacements(placements) {
+    return placements.map((p) => ({
+      p, x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation,
+      fontPx: p.fontPx, visualSizeMm: p.visualSizeMm
+    }));
+  }
+
+  function restoreSnapshot(snapshot) {
+    snapshot.forEach((s) => {
+      s.p.x = s.x; s.p.y = s.y; s.p.w = s.w; s.p.h = s.h;
+      s.p.rotation = s.rotation; s.p.fontPx = s.fontPx; s.p.visualSizeMm = s.visualSizeMm;
+    });
+  }
+
+  function tryPlaceAlongEdges(card, seed, scaleFactor) {
     const placements = card.placements || [];
     const W = card.widthMm, H = card.heightMm;
     const edges = shapeEdges(card.shape, W, H, placements.length);
     const counts = distributeCounts(placements.length, edges);
     const rng = G.rngFromSeed(`edge-${seed}-${card.index}`);
     const order = G.shuffle(placements, rng);
-    const snapshot = placements.map((p) => ({
-      p, x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation,
-      fontPx: p.fontPx, visualSizeMm: p.visualSizeMm
-    }));
     const occupied = [];
     let cursor = 0;
 
@@ -222,23 +242,32 @@
       const count = counts[edgeIndex];
       for (let slot = 0; slot < count; slot++) {
         const p = order[cursor++];
-        if (!p || !placeOneOnEdge(p, edges[edgeIndex], slot, count, occupied, card.shape, W, H)) {
-          snapshot.forEach((s) => {
-            s.p.x = s.x; s.p.y = s.y; s.p.w = s.w; s.p.h = s.h;
-            s.p.rotation = s.rotation; s.p.fontPx = s.fontPx; s.p.visualSizeMm = s.visualSizeMm;
-          });
-          card.edgeFallback = true;
-          card.layoutAdjusted = true;
-          card.layout = "edge";
-          return false;
-        }
+        if (!p || !placeOneOnEdge(p, edges[edgeIndex], slot, count, occupied, card.shape, W, H, scaleFactor)) return false;
+      }
+    }
+    return true;
+  }
+
+  function placeAlongEdges(card, seed) {
+    const snapshot = snapshotPlacements(card.placements || []);
+    const scales = [1, .94, .88, .82, .76, .70, .64, .58, .52, .46];
+
+    for (const scale of scales) {
+      restoreSnapshot(snapshot);
+      if (tryPlaceAlongEdges(card, seed, scale)) {
+        card.edgeFallback = false;
+        card.layoutAdjusted = scale < 1;
+        card.edgeScale = scale;
+        card.layout = "edge";
+        return true;
       }
     }
 
-    card.edgeFallback = false;
-    card.layoutAdjusted = false;
+    restoreSnapshot(snapshot);
+    card.edgeFallback = true;
+    card.layoutAdjusted = true;
     card.layout = "edge";
-    return true;
+    return false;
   }
 
   G.buildCards = function (pool, seed) {
