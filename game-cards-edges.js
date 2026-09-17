@@ -42,6 +42,28 @@
     };
   }
 
+  function placementCorners(p, halo) {
+    const pad = Math.max(0, halo || 0);
+    const hw = p.w / 2 + pad, hh = p.h / 2 + pad;
+    const r = (p.rotation || 0) * Math.PI / 180;
+    const c = Math.cos(r), si = Math.sin(r);
+    return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y]) => [
+      p.x + x*c - y*si,
+      p.y + x*si + y*c
+    ]);
+  }
+
+  function pointInsideShape(x, y, W, H, shape) {
+    if (shape === "rect") return x >= 0 && x <= W && y >= 0 && y <= H;
+    if (shape === "oval") return typeof G.pointInEllipse === "function" ? G.pointInEllipse(x, y, W, H, 0) : true;
+    const polygon = shape === "oct" ? G.octVertices(W, H, 0) : G.hexVertices(W, H, 0);
+    return typeof G.pointInPolygon === "function" ? G.pointInPolygon(x, y, polygon) : true;
+  }
+
+  function placementInsideShape(p, halo, W, H, shape) {
+    return placementCorners(p, halo).every(([x,y]) => pointInsideShape(x, y, W, H, shape));
+  }
+
   function overlaps(a, b) {
     return !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
   }
@@ -172,10 +194,7 @@
         p.x = bx + edge.nx * push;
         p.y = by + edge.ny * push;
         const rect = rectFor(p, halo);
-        const inside = typeof G.rectInsideShape === "function"
-          ? G.rectInsideShape(rect, W, H, 0, shape)
-          : true;
-        if (!inside) continue;
+        if (!placementInsideShape(p, halo, W, H, shape)) continue;
         if (occupied.some((other) => overlaps(rect, other))) continue;
         occupied.push(rect);
         return true;
