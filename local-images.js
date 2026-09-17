@@ -1,11 +1,12 @@
 (function () {
   const LOCAL_SOURCE = "local";
   const PDF_PX_PER_MM = 6;
-  const MM_TO_PX_FALLBACK = 3;
+  const MM_TO_PX = 3;
   const localObjectUrls = new Set();
   let localModeActive = false;
   let resultCssInjected = false;
   let renameTimer = null;
+  const renderTokens = new WeakMap();
 
   const byId = (id) => document.getElementById(id);
 
@@ -35,8 +36,12 @@
     return item.pictograms[item.current || 0] || null;
   }
 
+  function itemIsLocal(item) {
+    return isLocalPicto(currentPicto(item));
+  }
+
   function allCurrentItemsAreLocal() {
-    return Array.isArray(items) && items.length > 0 && items.every((item) => isLocalPicto(currentPicto(item)));
+    return Array.isArray(items) && items.length > 0 && items.every(itemIsLocal);
   }
 
   function revokeLocalObjectUrls() {
@@ -73,8 +78,11 @@
     return Number.isFinite(n) && n >= 0 ? n : 0;
   }
 
-  function shownWord(item) {
-    const raw = item?.word || "";
+  function shownWord(item, picto) {
+    let raw = item?.word || "";
+    if (picto && typeof picto === "object" && !cfg.writeLinesMode && cfg.caseOption !== "original") {
+      raw = picto.keywords?.[0]?.keyword || raw;
+    }
     return typeof displayWord === "function" ? displayWord(raw) : raw;
   }
 
@@ -82,11 +90,9 @@
     return typeof getItemBgColor === "function" ? getItemBgColor(item) : (cfg.bgColor || "#fff");
   }
 
-  function cardBorderColor(item) {
-    const picto = currentPicto(item);
-    const word = shownWord(item);
+  function cardBorderColor(item, picto, word) {
     return typeof effectiveBorderColor === "function"
-      ? effectiveBorderColor(word, isLocalPicto(picto) ? picto : (typeof picto === "object" ? picto : null), item)
+      ? effectiveBorderColor(word || item?.word || "", picto || null, item)
       : (cfg.borderColor || "#000");
   }
 
@@ -121,6 +127,7 @@
 
   function loadImage(url) {
     return new Promise((resolve) => {
+      if (!url) return resolve(null);
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => resolve(null);
@@ -128,7 +135,44 @@
     });
   }
 
-  async function renderLocalCardCanvas(item, pxPerMm) {
+  async function drawSourceLogo(ctx, picto, W, H) {
+    if (!picto || cfg.modeTextOnly) return;
+    const source = typeof pictoSource === "function" ? pictoSource(picto) : picto.source;
+
+    if (source === "arasaac" && cfg.showArasaacLogo && typeof getArasaacLogoBitmap === "function") {
+      try {
+        const logo = await getArasaacLogoBitmap();
+        if (!logo) return;
+        const margin = Math.max(4, W * 0.02);
+        const logoWidth = W * ((parseFloat(cfg.logoSizePercent) || 20) / 100);
+        const scale = logoWidth / logo.width;
+        const w = logo.width * scale;
+        const h = logo.height * scale;
+        let x = margin, y = margin;
+        switch (cfg.logoPosition) {
+          case "top-right": x = W - w - margin; break;
+          case "bottom-left": y = H - h - margin; break;
+          case "bottom-right": x = W - w - margin; y = H - h - margin; break;
+        }
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.drawImage(logo, x, y, w, h);
+        ctx.restore();
+      } catch (_) {}
+    } else if (source === "soyvisual" && cfg.showSoyvisualLogo && typeof getSoyvisualLogoDataURL === "function") {
+      const logo = await loadImage(getSoyvisualLogoDataURL());
+      if (!logo) return;
+      const margin = Math.max(4, W * 0.02);
+      const maxW = Math.min(W * 0.34, 240);
+      const scale = maxW / logo.width;
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      ctx.drawImage(logo, margin, margin, logo.width * scale, logo.height * scale);
+      ctx.restore();
+    }
+  }
+
+  async function renderCardCanvas(item, pxPerMm) {
     const cardWmm = Math.max(10, parseFloat(cfg.cardW) || 60);
     const cardHmm = Math.max(10, parseFloat(cfg.cardH) || 100);
     const scale = Math.max(0.5, pxPerMm || PDF_PX_PER_MM);
@@ -139,9 +183,13 @@
     canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    const radiusPx = cardRadiusMm() * scale;
+    const picto = currentPicto(item);
+    const isObjectPicto = !!(picto && typeof picto === "object");
+    const isLocal = isLocalPicto(picto);
+    const radiusPx = isLocal ? cardRadiusMm() * scale : 0;
     const borderMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
     const borderPx = borderMm * scale;
+    const word = shownWord(item, picto);
 
     ctx.clearRect(0, 0, W, H);
     roundedRectPath(ctx, 0, 0, W, H, radiusPx);
@@ -157,16 +205,13 @@
     const innerY = marginPx;
     const innerW = Math.max(1, W - marginPx * 2);
     const innerH = Math.max(1, H - marginPx * 2);
-    const picto = currentPicto(item);
-    const isPic = isLocalPicto(picto);
-    const word = shownWord(item);
     const hasLines = !!cfg.writeLinesMode;
-    const showTextOnly = !!cfg.modeTextOnly || !isPic;
+    const showTextOnly = !!cfg.modeTextOnly || !isObjectPicto;
     const showWord = !cfg.modeImageOnly && !hasLines && !cfg.modeTextOnly && (parseFloat(cfg.fontSize) || 0) > 0;
 
-    const fontMm = Math.max(0, parseFloat(cfg.fontSize) || 0) / MM_TO_PX_FALLBACK;
+    const fontMm = Math.max(0, parseFloat(cfg.fontSize) || 0) / MM_TO_PX;
     const fontPx = Math.max(8, fontMm * scale);
-    const linesMm = Math.max(0, parseFloat(cfg.linesDistance) || 30) / MM_TO_PX_FALLBACK;
+    const linesMm = Math.max(0, parseFloat(cfg.linesDistance) || 30) / MM_TO_PX;
     const linesPx = Math.max(8, linesMm * scale);
     const textGapPx = showWord
       ? (Math.max(0, parseFloat(cfg.textGapMm) || 0) + (cfg.autoTextGap ? 2 : 0)) * scale
@@ -210,7 +255,7 @@
       const y1 = innerY + mediaH + 6 * scale;
       const y2 = y1 + linesPx;
       ctx.strokeStyle = "#000";
-      ctx.lineWidth = Math.max(1, 2 * scale / MM_TO_PX_FALLBACK);
+      ctx.lineWidth = Math.max(1, 2 * scale / MM_TO_PX);
       ctx.beginPath();
       ctx.moveTo(x, y1); ctx.lineTo(x + lineWidth, y1);
       ctx.moveTo(x, y2); ctx.lineTo(x + lineWidth, y2);
@@ -221,12 +266,13 @@
       if (hasLines) drawLines();
       else if (!cfg.modeImageOnly) drawCenteredText();
     } else {
-      const img = await loadImage(picto.imageUrl || "");
+      const imageUrl = isLocal ? picto.imageUrl : (typeof pictoUrl === "function" ? pictoUrl(picto) : "");
+      const img = await loadImage(imageUrl);
       if (img) {
-        const boxPx = Math.min(localImageSizeMm() * scale, innerW, mediaH);
+        const mediaMm = isLocal ? localImageSizeMm() : Math.max(5, parseFloat(cfg.picSize) || 50);
+        const boxPx = Math.min(mediaMm * scale, innerW, mediaH);
         const ratio = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
-        let w = boxPx;
-        let h = boxPx;
+        let w = boxPx, h = boxPx;
         if (ratio > 1) h = w / ratio;
         else w = h * ratio;
         const x = innerX + (innerW - w) / 2;
@@ -235,17 +281,16 @@
       }
       if (hasLines) drawLines();
       else if (showWord) drawWordBelow();
+      if (!isLocal) await drawSourceLogo(ctx, picto, W, H);
     }
 
-    if (typeof drawTenseMarker === "function") {
-      drawTenseMarker(ctx, item, W, H, borderPx);
-    }
+    if (typeof drawTenseMarker === "function") drawTenseMarker(ctx, item, W, H, borderPx);
     ctx.restore();
 
     if (borderPx > 0.1) {
       const inset = borderPx / 2;
       roundedRectPath(ctx, inset, inset, Math.max(0, W - borderPx), Math.max(0, H - borderPx), Math.max(0, radiusPx - inset));
-      ctx.strokeStyle = cardBorderColor(item);
+      ctx.strokeStyle = cardBorderColor(item, isObjectPicto ? picto : null, word);
       ctx.lineWidth = Math.max(1, borderPx);
       ctx.stroke();
     }
@@ -254,48 +299,62 @@
   }
 
   function injectResultCss() {
-    if (resultCssInjected || byId("local-result-canvas-css")) return;
+    if (resultCssInjected || byId("synced-result-canvas-css")) return;
     resultCssInjected = true;
     const style = document.createElement("style");
-    style.id = "local-result-canvas-css";
+    style.id = "synced-result-canvas-css";
     style.textContent = `
-      .local-result-preview{width:100%;height:auto;display:block;background:transparent;}
-      .grid-item.local-card-result{border-color:transparent !important;background:transparent !important;box-shadow:none;}
-      .grid-item.local-card-result > .arrows-container{margin-bottom:8px;}
-      .grid-item.local-card-result > .card-media-wrap,
-      .grid-item.local-card-result > .word-text{display:none !important;}
-      .grid-item:not(.local-card-result) > .word-text,
-      .grid-item:not(.local-card-result) > .card-media-wrap .media-text{color:#000 !important;}
+      .synced-result-preview{width:100%;height:auto;display:block;background:transparent;cursor:pointer;}
+      .grid-item.synced-card-result{border-color:transparent !important;background:transparent !important;box-shadow:none;}
+      .grid-item.synced-card-result > .arrows-container{margin-bottom:8px;}
+      .grid-item.synced-card-result > .card-media-wrap,
+      .grid-item.synced-card-result > .word-text{display:none !important;}
     `;
     document.head.appendChild(style);
   }
 
   async function redrawResultCanvas(el, item) {
-    const preview = el.querySelector(".local-result-preview");
+    const preview = el.querySelector(".synced-result-preview");
     if (!preview) return;
+    const token = (renderTokens.get(preview) || 0) + 1;
+    renderTokens.set(preview, token);
     const cardWmm = Math.max(10, parseFloat(cfg.cardW) || 60);
-    const width = Math.max(120, Math.floor(preview.clientWidth || el.clientWidth || 180));
-    const pxPerMm = width / cardWmm;
-    const rendered = await renderLocalCardCanvas(item, pxPerMm);
+    const width = Math.max(100, Math.floor(preview.clientWidth || el.clientWidth || 180));
+    const rendered = await renderCardCanvas(item, width / cardWmm);
+    if (renderTokens.get(preview) !== token) return;
     preview.width = rendered.width;
     preview.height = rendered.height;
     const ctx = preview.getContext("2d");
     ctx.clearRect(0, 0, preview.width, preview.height);
     ctx.drawImage(rendered, 0, 0);
+    preview.setAttribute("aria-label", `Vista previa de ${item.word || "tarjeta"}`);
   }
 
-  function decorateLocalResult(el, item) {
-    if (!isLocalPicto(currentPicto(item))) return;
+  function decorateResult(el, item) {
     injectResultCss();
-    el.classList.add("local-card-result");
-    let preview = el.querySelector(".local-result-preview");
+    el.classList.add("synced-card-result");
+    const originalMedia = el.querySelector(":scope > .card-media-wrap");
+    let preview = el.querySelector(".synced-result-preview");
     if (!preview) {
       preview = document.createElement("canvas");
-      preview.className = "local-result-preview";
-      preview.setAttribute("aria-label", `Vista previa de ${item.word || "imagen"}`);
+      preview.className = "synced-result-preview";
+      preview.tabIndex = 0;
       const nav = el.querySelector(":scope > .arrows-container");
       if (nav) nav.insertAdjacentElement("afterend", preview);
       else el.prepend(preview);
+
+      const cycle = (shiftKey) => {
+        if (!originalMedia || !Array.isArray(item.pictograms) || item.pictograms.length <= 1) return;
+        originalMedia.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: !!shiftKey }));
+        setTimeout(() => redrawResultCanvas(el, item), 0);
+      };
+      preview.addEventListener("click", (e) => cycle(e.shiftKey));
+      preview.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          cycle(e.shiftKey);
+        }
+      });
     }
 
     const redraw = () => requestAnimationFrame(() => redrawResultCanvas(el, item));
@@ -310,13 +369,13 @@
   }
 
   function installResultRenderer() {
-    if (typeof renderItem !== "function" || renderItem.__localCanvasPreview) return;
+    if (typeof renderItem !== "function" || renderItem.__syncedCanvasPreview) return;
     const original = renderItem;
     const wrapped = function (el, item) {
       original(el, item);
-      decorateLocalResult(el, item);
+      decorateResult(el, item);
     };
-    wrapped.__localCanvasPreview = true;
+    wrapped.__syncedCanvasPreview = true;
     renderItem = wrapped;
   }
 
@@ -451,7 +510,7 @@
       const cardHmm = Math.max(10, parseFloat(cfg.cardH) || 100);
       const maxDim = Math.max(80, parseFloat(byId("previewSizeRange")?.value) || parseFloat(cfg.previewMax) || 260);
       const pxPerMm = maxDim / Math.max(cardWmm, cardHmm);
-      const rendered = await renderLocalCardCanvas(items[0], pxPerMm);
+      const rendered = await renderCardCanvas(items[0], pxPerMm);
       pv.width = rendered.width;
       pv.height = rendered.height;
       pv.getContext("2d").drawImage(rendered, 0, 0);
@@ -503,7 +562,7 @@
     const perPage = cols * rows;
     const narrationTokens = narrationOn && String(cfg.narrationText || "").trim()
       ? String(cfg.narrationText).trim().split(/\s+/)
-      : items.map((item) => shownWord(item));
+      : items.map((item) => shownWord(item, currentPicto(item)));
 
     for (let i = 0; i < items.length; i++) {
       const pageIndex = i % perPage;
@@ -512,10 +571,10 @@
       const row = Math.floor(pageIndex / cols);
       const x = margin + col * (cardW + gap);
       const y = margin + row * (cardH + narrationH + gap);
-      const card = await renderLocalCardCanvas(items[i], PDF_PX_PER_MM);
+      const card = await renderCardCanvas(items[i], PDF_PX_PER_MM);
       pdf.addImage(card.toDataURL("image/png"), "PNG", x, y, cardW, cardH, undefined, "FAST");
       if (narrationOn && narrationH > 0) {
-        const strip = await renderNarrationStrip(narrationTokens[i] || shownWord(items[i]), cardW, narrationH);
+        const strip = await renderNarrationStrip(narrationTokens[i] || shownWord(items[i], currentPicto(items[i])), cardW, narrationH);
         pdf.addImage(strip.toDataURL("image/png"), "PNG", x, y + cardH, cardW, narrationH, undefined, "FAST");
       }
     }
@@ -577,7 +636,7 @@
       downloadBtn.onclick = async function (event) {
         if (!localModeActive || !allCurrentItemsAreLocal()) return original ? original.call(this, event) : undefined;
         for (const item of items) {
-          const card = await renderLocalCardCanvas(item, PDF_PX_PER_MM);
+          const card = await renderCardCanvas(item, PDF_PX_PER_MM);
           const blob = await new Promise((resolve) => card.toBlob(resolve, "image/png"));
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
