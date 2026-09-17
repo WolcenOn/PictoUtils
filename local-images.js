@@ -96,6 +96,17 @@
       : (cfg.borderColor || "#000");
   }
 
+  function isHeuristicVerb(item) {
+    if (typeof guessPos !== "function") return false;
+    const picto = currentPicto(item);
+    const pictoForGuess = picto && typeof picto === "object" ? picto : null;
+    try {
+      return guessPos(item?.word || "", pictoForGuess) === "verb";
+    } catch (_) {
+      return false;
+    }
+  }
+
   function roundedRectPath(ctx, x, y, w, h, radius) {
     const r = Math.max(0, Math.min(radius || 0, w / 2, h / 2));
     ctx.beginPath();
@@ -304,11 +315,13 @@
     const style = document.createElement("style");
     style.id = "synced-result-canvas-css";
     style.textContent = `
+      .synced-result-stage{position:relative;width:100%;}
       .synced-result-preview{width:100%;height:auto;display:block;background:transparent;cursor:pointer;}
       .grid-item.synced-card-result{border-color:transparent !important;background:transparent !important;box-shadow:none;}
       .grid-item.synced-card-result > .arrows-container{margin-bottom:8px;}
       .grid-item.synced-card-result > .card-media-wrap,
       .grid-item.synced-card-result > .word-text{display:none !important;}
+      .synced-result-stage > .tense-overlay-btn{top:35%;transform:translateY(-50%);z-index:6;}
     `;
     document.head.appendChild(style);
   }
@@ -334,19 +347,31 @@
     injectResultCss();
     el.classList.add("synced-card-result");
     const originalMedia = el.querySelector(":scope > .card-media-wrap");
+    const tenseButtons = originalMedia ? Array.from(originalMedia.querySelectorAll(".tense-overlay-btn")) : [];
+    let stage = el.querySelector(".synced-result-stage");
     let preview = el.querySelector(".synced-result-preview");
+
+    if (!stage) {
+      stage = document.createElement("div");
+      stage.className = "synced-result-stage";
+      const nav = el.querySelector(":scope > .arrows-container");
+      if (nav) nav.insertAdjacentElement("afterend", stage);
+      else el.prepend(stage);
+    }
+
     if (!preview) {
       preview = document.createElement("canvas");
       preview.className = "synced-result-preview";
       preview.tabIndex = 0;
-      const nav = el.querySelector(":scope > .arrows-container");
-      if (nav) nav.insertAdjacentElement("afterend", preview);
-      else el.prepend(preview);
+      stage.appendChild(preview);
 
       const cycle = (shiftKey) => {
         if (!originalMedia || !Array.isArray(item.pictograms) || item.pictograms.length <= 1) return;
         originalMedia.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: !!shiftKey }));
-        setTimeout(() => redrawResultCanvas(el, item), 0);
+        setTimeout(() => {
+          syncTenseControls();
+          redrawResultCanvas(el, item);
+        }, 0);
       };
       preview.addEventListener("click", (e) => cycle(e.shiftKey));
       preview.addEventListener("keydown", (e) => {
@@ -357,7 +382,39 @@
       });
     }
 
-    const redraw = () => requestAnimationFrame(() => redrawResultCanvas(el, item));
+    tenseButtons.forEach((button) => {
+      if (button.parentElement !== stage) stage.appendChild(button);
+      if (button.dataset.syncedTenseRedraw !== "1") {
+        button.dataset.syncedTenseRedraw = "1";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setTimeout(() => {
+            syncTenseControls();
+            redrawResultCanvas(el, item);
+          }, 0);
+        });
+      }
+    });
+
+    function syncTenseControls() {
+      const isVerb = isHeuristicVerb(item);
+      if (!isVerb && item.tenseOverride && item.tenseOverride !== "none") {
+        item.tenseOverride = "none";
+      }
+      tenseButtons.forEach((button) => {
+        button.style.display = isVerb ? "" : "none";
+        const mode = button.classList.contains("tense-overlay-btn--left") ? "past" : "future";
+        button.classList.toggle("active", isVerb && item.tenseOverride === mode);
+        button.setAttribute("aria-hidden", isVerb ? "false" : "true");
+      });
+      return isVerb;
+    }
+
+    syncTenseControls();
+    const redraw = () => requestAnimationFrame(() => {
+      syncTenseControls();
+      redrawResultCanvas(el, item);
+    });
     redraw();
 
     const observer = new MutationObserver(redraw);
@@ -372,11 +429,30 @@
     if (typeof renderItem !== "function" || renderItem.__syncedCanvasPreview) return;
     const original = renderItem;
     const wrapped = function (el, item) {
+      if (!isHeuristicVerb(item) && item?.tenseOverride && item.tenseOverride !== "none") {
+        item.tenseOverride = "none";
+      }
       original(el, item);
       decorateResult(el, item);
     };
     wrapped.__syncedCanvasPreview = true;
     renderItem = wrapped;
+  }
+
+  function installTenseModalFilter() {
+    if (typeof buildTenseControls !== "function" || buildTenseControls.__verbOnly) return;
+    const original = buildTenseControls;
+    const wrapped = function (item, onChange) {
+      const controls = original(item, onChange);
+      const isVerb = isHeuristicVerb(item);
+      if (!isVerb) {
+        item.tenseOverride = "none";
+        controls.style.display = "none";
+      }
+      return controls;
+    };
+    wrapped.__verbOnly = true;
+    buildTenseControls = wrapped;
   }
 
   function installBorderColorConsistency() {
@@ -701,6 +777,7 @@
   }
 
   installBorderColorConsistency();
+  installTenseModalFilter();
   installResultRenderer();
   installPreviewRenderer();
   window.addEventListener("beforeunload", revokeLocalObjectUrls);
