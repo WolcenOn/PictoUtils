@@ -33,14 +33,9 @@
   }
 
   function insideCardRect(rect, cardW, cardH, margin) {
-    if (G.cfg.shape === "rect") {
-      return rect.left >= margin && rect.right <= cardW - margin && rect.top >= margin && rect.bottom <= cardH - margin;
-    }
-    const polygon = G.hexVertices(cardW, cardH, margin);
-    return G.pointInPolygon(rect.left, rect.top, polygon) &&
-      G.pointInPolygon(rect.right, rect.top, polygon) &&
-      G.pointInPolygon(rect.right, rect.bottom, polygon) &&
-      G.pointInPolygon(rect.left, rect.bottom, polygon);
+    return typeof G.rectInsideShape === "function"
+      ? G.rectInsideShape(rect, cardW, cardH, margin, G.cfg.shape)
+      : rect.left >= margin && rect.right <= cardW - margin && rect.top >= margin && rect.bottom <= cardH - margin;
   }
 
   function textBoundsMm(text, family, fontPx) {
@@ -145,7 +140,6 @@
       }
     }
 
-    // Último recurso: cabe recto y al tamaño mínimo dentro de su región.
     p.rotation = 0;
     if (p.kind === "visual") {
       const size = Math.max(3, Math.min(p.baseVisualSizeMm, safeW, safeH));
@@ -165,10 +159,9 @@
     const W = G.cfg.widthMm;
     const H = G.cfg.heightMm;
     const m = Math.max(2, G.cfg.edgePaddingMm || 0);
-    if (G.cfg.shape === "hex") {
-      return { x: W * .25 + m, y: m, w: Math.max(10, W * .5 - m * 2), h: Math.max(10, H - m * 2) };
-    }
-    return { x: m, y: m, w: Math.max(10, W - m * 2), h: Math.max(10, H - m * 2) };
+    return typeof G.safeShapeRect === "function"
+      ? G.safeShapeRect(W, H, m, G.cfg.shape)
+      : { x: m, y: m, w: Math.max(10, W - m * 2), h: Math.max(10, H - m * 2) };
   }
 
   function placeGrid(list, options) {
@@ -226,7 +219,7 @@
         const x = minX + rng() * Math.max(.01, maxX - minX);
         const y = minY + rng() * Math.max(.01, maxY - minY);
         const collision = rectFor(x, y, p.w, p.h, p.rotation, halo);
-        if (!insideCardRect(collision, W, H, 0)) continue;
+        if (!insideCardRect(collision, W, H, margin)) continue;
         if (occupied.some((other) => overlaps(collision, other))) continue;
         p.x = x;
         p.y = y;
@@ -251,33 +244,27 @@
       }
     }
 
-    // Si no cabe una composición aleatoria completa, toda la tarjeta pasa a
-    // celdas seguras, pero conserva los giros aleatorios siempre que quepan.
-    // La ligera variación dentro de cada celda evita que el fallback parezca
-    // una cuadrícula rígida y sigue garantizando que no haya solapes.
     const fallbackRng = G.rngFromSeed(`safe-grid-${Math.floor(rng() * 0xffffffff)}`);
     placeGrid(list, { preserveRotation: true, rng: fallbackRng });
     return { fallback: true, scale: 1 };
   }
 
   function placeDomino(list) {
-    const W = G.cfg.widthMm;
-    const H = G.cfg.heightMm;
-    const m = Math.max(4, G.cfg.edgePaddingMm || 0);
+    const region = safeGridRect();
     const gap = Math.max(0, G.cfg.itemGapMm || 0);
-    const vertical = W >= H;
+    const vertical = region.w >= region.h;
     list.slice(0, 2).forEach((p, i) => {
       p.rotation = 0;
       if (vertical) {
-        const rw = (W - m * 2) / 2;
-        p.x = m + rw * (i + .5);
-        p.y = H / 2;
-        fitToRegion(p, Math.max(4, rw - gap * 2), Math.max(4, H - m * 2 - gap * 2), false);
+        const rw = region.w / 2;
+        p.x = region.x + rw * (i + .5);
+        p.y = region.y + region.h / 2;
+        fitToRegion(p, Math.max(4, rw - gap * 2), Math.max(4, region.h - gap * 2), false);
       } else {
-        const rh = (H - m * 2) / 2;
-        p.x = W / 2;
-        p.y = m + rh * (i + .5);
-        fitToRegion(p, Math.max(4, W - m * 2 - gap * 2), Math.max(4, rh - gap * 2), false);
+        const rh = region.h / 2;
+        p.x = region.x + region.w / 2;
+        p.y = region.y + rh * (i + .5);
+        fitToRegion(p, Math.max(4, region.w - gap * 2), Math.max(4, rh - gap * 2), false);
       }
     });
   }
