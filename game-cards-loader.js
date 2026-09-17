@@ -1,0 +1,20 @@
+(function () {
+  const queue = [
+    "local-images-feature.js",
+    "game-cards-core.js",
+    "game-cards-layouts.js",
+    "game-cards-render.js",
+    "game-cards-ui.js"
+  ];
+  let index = 0;
+  function loadNext() {
+    if (index >= queue.length) return;
+    const script = document.createElement("script");
+    script.src = queue[index++];
+    script.async = false;
+    script.onload = loadNext;
+    script.onerror = () => console.error("No se pudo cargar", script.src);
+    document.head.appendChild(script);
+  }
+  loadNext();
+})();
