@@ -3,8 +3,10 @@
     "local-images-feature.js",
     "game-cards-core.js",
     "game-cards-layouts.js",
+    "game-cards-edges.js",
     "game-cards-render.js",
-    "game-cards-ui.js"
+    "game-cards-ui.js",
+    "game-cards-ui-enhance.js"
   ];
   let index = 0;
   function loadNext() {
