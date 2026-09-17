@@ -12,7 +12,8 @@
     "game-cards-size-ui.js",
     "game-cards-print-ui.js",
     "game-cards-decoration-ui.js",
-    "game-cards-ui-enhance.js"
+    "game-cards-ui-enhance.js",
+    "game-cards-workflow-ui.js"
   ];
   let index = 0;
   function loadNext() {
