@@ -14,7 +14,8 @@
     "game-cards-decoration-ui.js",
     "game-cards-ui-enhance.js",
     "game-cards-range-ui.js",
-    "game-cards-workflow-ui.js"
+    "game-cards-workflow-ui.js",
+    "game-cards-education-theme.js"
   ];
   let index = 0;
   function loadNext() {
