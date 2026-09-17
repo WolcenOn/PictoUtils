@@ -15,6 +15,7 @@
     "game-cards-decoration-ui.js",
     "game-cards-ui-enhance.js",
     "game-cards-state-guard.js",
+    "game-cards-generation-state.js",
     "game-cards-range-ui.js",
     "game-cards-workflow-ui.js",
     "game-cards-reorganize-ui.js",
