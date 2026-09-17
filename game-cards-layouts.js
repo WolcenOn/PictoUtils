@@ -103,27 +103,62 @@
     return p;
   }
 
-  function fitToRegion(p, maxW, maxH) {
+  function fitToRegion(p, maxW, maxH, preserveRotation) {
     const safeW = Math.max(4, maxW);
     const safeH = Math.max(4, maxH);
+    const keepRotation = !!preserveRotation;
+    const originalRotation = keepRotation ? p.rotation : 0;
+    const angles = keepRotation
+      ? [originalRotation, originalRotation * .85, originalRotation * .7, originalRotation * .55, originalRotation * .4, originalRotation * .25, 0]
+      : [0];
+
+    for (const angle of angles) {
+      if (p.kind === "visual") {
+        const unit = rotatedBox(1, 1, angle);
+        const size = Math.min(
+          p.baseVisualSizeMm,
+          safeW / Math.max(.001, unit.w),
+          safeH / Math.max(.001, unit.h)
+        );
+        if (size >= 5) {
+          p.visualSizeMm = size;
+          p.w = size;
+          p.h = size;
+          p.rotation = angle;
+          return true;
+        }
+        continue;
+      }
+
+      let f = G.clamp(p.baseFontPx, 8, G.cfg.maxFontPx);
+      while (f >= 8) {
+        const b = textBoundsMm(p.source.word, p.fontFamily, f);
+        const rotated = rotatedBox(b.w, b.h, angle);
+        if (rotated.w <= safeW && rotated.h <= safeH) {
+          p.fontPx = f;
+          p.w = b.w;
+          p.h = b.h;
+          p.rotation = angle;
+          return true;
+        }
+        f -= 1;
+      }
+    }
+
+    // Último recurso: cabe recto y al tamaño mínimo dentro de su región.
+    p.rotation = 0;
     if (p.kind === "visual") {
-      const size = Math.max(5, Math.min(p.baseVisualSizeMm, safeW, safeH));
+      const size = Math.max(3, Math.min(p.baseVisualSizeMm, safeW, safeH));
       p.visualSizeMm = size;
       p.w = size;
       p.h = size;
-      p.rotation = 0;
-      return;
+      return size > 0;
     }
-    let f = G.clamp(p.baseFontPx, 8, G.cfg.maxFontPx);
-    let b = textBoundsMm(p.source.word, p.fontFamily, f);
-    while ((b.w > safeW || b.h > safeH) && f > 8) {
-      f -= 1;
-      b = textBoundsMm(p.source.word, p.fontFamily, f);
-    }
-    p.fontPx = f;
+    const b = textBoundsMm(p.source.word, p.fontFamily, 8);
+    p.fontPx = 8;
     p.w = Math.min(b.w, safeW);
     p.h = Math.min(b.h, safeH);
-    p.rotation = 0;
+    return true;
   }
 
   function safeGridRect() {
@@ -136,7 +171,10 @@
     return { x: m, y: m, w: Math.max(10, W - m * 2), h: Math.max(10, H - m * 2) };
   }
 
-  function placeGrid(list) {
+  function placeGrid(list, options) {
+    const opts = options || {};
+    const preserveRotation = !!opts.preserveRotation;
+    const rng = typeof opts.rng === "function" ? opts.rng : null;
     const region = safeGridRect();
     const gap = Math.max(0, G.cfg.itemGapMm || 0);
     const aspect = region.w / Math.max(1, region.h);
@@ -144,12 +182,22 @@
     const rows = Math.max(1, Math.ceil(list.length / cols));
     const cw = region.w / cols;
     const ch = region.h / rows;
+
     list.forEach((p, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      p.x = region.x + col * cw + cw / 2;
-      p.y = region.y + row * ch + ch / 2;
-      fitToRegion(p, Math.max(4, cw - gap * 2), Math.max(4, ch - gap * 2));
+      const usableW = Math.max(4, cw - gap * 2);
+      const usableH = Math.max(4, ch - gap * 2);
+      fitToRegion(p, usableW, usableH, preserveRotation);
+
+      const box = rotatedBox(p.w, p.h, p.rotation);
+      const slackX = Math.max(0, usableW - box.w);
+      const slackY = Math.max(0, usableH - box.h);
+      const jitterX = preserveRotation && rng ? (rng() - .5) * slackX * .8 : 0;
+      const jitterY = preserveRotation && rng ? (rng() - .5) * slackY * .8 : 0;
+
+      p.x = region.x + col * cw + cw / 2 + jitterX;
+      p.y = region.y + row * ch + ch / 2 + jitterY;
     });
   }
 
@@ -203,9 +251,12 @@
       }
     }
 
-    // Si no cabe una composición aleatoria completa, recoloca TODA la tarjeta
-    // en una cuadrícula segura. Nunca mezcla posiciones aleatorias y fallback.
-    placeGrid(list);
+    // Si no cabe una composición aleatoria completa, toda la tarjeta pasa a
+    // celdas seguras, pero conserva los giros aleatorios siempre que quepan.
+    // La ligera variación dentro de cada celda evita que el fallback parezca
+    // una cuadrícula rígida y sigue garantizando que no haya solapes.
+    const fallbackRng = G.rngFromSeed(`safe-grid-${Math.floor(rng() * 0xffffffff)}`);
+    placeGrid(list, { preserveRotation: true, rng: fallbackRng });
     return { fallback: true, scale: 1 };
   }
 
@@ -221,12 +272,12 @@
         const rw = (W - m * 2) / 2;
         p.x = m + rw * (i + .5);
         p.y = H / 2;
-        fitToRegion(p, Math.max(4, rw - gap * 2), Math.max(4, H - m * 2 - gap * 2));
+        fitToRegion(p, Math.max(4, rw - gap * 2), Math.max(4, H - m * 2 - gap * 2), false);
       } else {
         const rh = (H - m * 2) / 2;
         p.x = W / 2;
         p.y = m + rh * (i + .5);
-        fitToRegion(p, Math.max(4, W - m * 2 - gap * 2), Math.max(4, rh - gap * 2));
+        fitToRegion(p, Math.max(4, W - m * 2 - gap * 2), Math.max(4, rh - gap * 2), false);
       }
     });
   }
@@ -252,7 +303,7 @@
       const sources = G.chooseSources(pool, G.cfg.perCard, rng, usage);
       const placements = sources.map((s, k) => makePlacement(s, G.chooseKind(s, rng), rng, i, k));
       let result = { fallback: false, scale: 1 };
-      if (G.cfg.layout === "grid") placeGrid(placements);
+      if (G.cfg.layout === "grid") placeGrid(placements, { preserveRotation: false });
       else result = placeRandom(placements, rng);
       cards.push({
         index: i,
