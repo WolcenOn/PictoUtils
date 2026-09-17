@@ -21,7 +21,7 @@
     const metrics = ctx.measureText(shown || " ");
     const height = ((metrics.actualBoundingBoxAscent || fontMm * scale * .8) +
       (metrics.actualBoundingBoxDescent || fontMm * scale * .25)) / scale;
-    return { w: Math.max(8, metrics.width / scale + 2.5), h: Math.max(6, height + 2.5) };
+    return { w: Math.max(5, metrics.width / scale + 2.5), h: Math.max(4, height + 2.5) };
   }
 
   function normalizeAngle(deg) {
@@ -87,16 +87,12 @@
       const ux = dx / length, uy = dy / length;
       let nx = -uy, ny = ux;
       const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      if ((cx - mx) * nx + (cy - my) * ny < 0) {
-        nx *= -1;
-        ny *= -1;
-      }
-      // El eje Y local del texto apunta hacia su parte inferior. Orientamos
-      // cada elemento para que esa parte inferior mire siempre hacia el borde.
+      if ((cx - mx) * nx + (cy - my) * ny < 0) { nx *= -1; ny *= -1; }
+      const depth = Math.max(1, (cx - mx) * nx + (cy - my) * ny);
       const outwardAngle = normalizeAngle(Math.atan2(nx, -ny) * 180 / Math.PI);
       return {
-        x1: a[0], y1: a[1], x2: b[0], y2: b[1],
-        ux, uy, nx, ny, length, angle: outwardAngle
+        index: i, x1: a[0], y1: a[1], x2: b[0], y2: b[1],
+        ux, uy, nx, ny, length, depth, angle: outwardAngle
       };
     });
   }
@@ -141,10 +137,73 @@
     return counts;
   }
 
+  function buildSlots(shape, W, H, itemCount) {
+    const edges = shapeEdges(shape, W, H, itemCount);
+    const counts = distributeCounts(itemCount, edges);
+    const gap = Math.max(0, G.cfg.itemGapMm || 0);
+    const edgePad = Math.max(0, G.cfg.edgePaddingMm || 0);
+    const slots = [];
+
+    edges.forEach((edge, edgeIndex) => {
+      const count = counts[edgeIndex] || 0;
+      if (!count) return;
+      const vertexPad = Math.min(edge.length * .14, Math.max(1.5, gap * .75));
+      const usableLength = Math.max(5, edge.length - vertexPad * 2);
+      const slotLength = usableLength / count;
+      const along = Math.max(3, slotLength - gap);
+      const across = Math.max(3, Math.min(edge.depth * 1.45 - edgePad * 2, Math.min(W, H) * .48));
+      for (let slotIndex = 0; slotIndex < count; slotIndex++) {
+        const distance = vertexPad + slotLength * (slotIndex + .5);
+        slots.push({
+          edge, edgeIndex, slotIndex, slotCount: count,
+          along, across,
+          bx: edge.x1 + edge.ux * distance,
+          by: edge.y1 + edge.uy * distance
+        });
+      }
+    });
+    return slots;
+  }
+
+  function baseDimensions(p) {
+    if (p.kind === "visual") {
+      const s = Math.max(2.5, p.baseVisualSizeMm || p.visualSizeMm || 12);
+      return { w: s, h: s };
+    }
+    return textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", Math.max(7, p.baseFontPx || p.fontPx || 18));
+  }
+
+  function slotDemand(p, slot) {
+    const d = baseDimensions(p);
+    return Math.max(d.w / Math.max(.1, slot.along), d.h / Math.max(.1, slot.across));
+  }
+
+  function assignPlacementsToSlots(placements, slots) {
+    const remaining = slots.slice();
+    const ordered = placements.slice().sort((a, b) => {
+      const da = baseDimensions(a), db = baseDimensions(b);
+      return Math.max(db.w, db.h) - Math.max(da.w, da.h);
+    });
+    const assigned = [];
+
+    for (const p of ordered) {
+      let bestIndex = 0;
+      let bestScore = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const score = slotDemand(p, remaining[i]);
+        if (score < bestScore) { bestScore = score; bestIndex = i; }
+      }
+      const slot = remaining.splice(bestIndex, 1)[0];
+      if (!slot) return [];
+      assigned.push({ p, slot });
+    }
+    return assigned;
+  }
+
   function fitPlacement(p, maxAlong, maxAcross, scaleFactor) {
-    const factor = Math.max(.25, Math.min(1, scaleFactor || 1));
-    const along = Math.max(4, maxAlong);
-    const across = Math.max(4, maxAcross);
+    const factor = Math.max(.18, Math.min(1, scaleFactor || 1));
+    const along = Math.max(3, maxAlong);
+    const across = Math.max(3, maxAcross);
     const fixedText = G.cfg.fontSizeMode === "fixed";
     const fixedImage = G.cfg.imageSizeMode === "fixed";
 
@@ -152,15 +211,11 @@
       const base = (p.baseVisualSizeMm || p.visualSizeMm || 12) * factor;
       if (fixedImage) {
         if (base > along + .001 || base > across + .001) return false;
-        p.visualSizeMm = base;
-        p.w = base;
-        p.h = base;
+        p.visualSizeMm = base; p.w = base; p.h = base;
         return true;
       }
       const size = Math.max(2.5, Math.min(base, along, across));
-      p.visualSizeMm = size;
-      p.w = size;
-      p.h = size;
+      p.visualSizeMm = size; p.w = size; p.h = size;
       return true;
     }
 
@@ -168,19 +223,14 @@
     let bounds = textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", fontPx);
     if (fixedText) {
       if (bounds.w > along + .001 || bounds.h > across + .001) return false;
-      p.fontPx = fontPx;
-      p.w = bounds.w;
-      p.h = bounds.h;
+      p.fontPx = fontPx; p.w = bounds.w; p.h = bounds.h;
       return true;
     }
-
     while ((bounds.w > along || bounds.h > across) && fontPx > 7) {
       fontPx--;
       bounds = textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", fontPx);
     }
-    p.fontPx = fontPx;
-    p.w = Math.min(bounds.w, along);
-    p.h = Math.min(bounds.h, across);
+    p.fontPx = fontPx; p.w = Math.min(bounds.w, along); p.h = Math.min(bounds.h, across);
     return true;
   }
 
@@ -188,50 +238,38 @@
     const f = Math.max(.55, Math.min(.95, factor || .9));
     if (p.kind === "visual") {
       const size = Math.max(2.5, (p.visualSizeMm || p.w || 10) * f);
-      p.visualSizeMm = size;
-      p.w = size;
-      p.h = size;
+      p.visualSizeMm = size; p.w = size; p.h = size;
       return;
     }
     const fontPx = Math.max(7, Math.floor((p.fontPx || 8) * f));
     const b = textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", fontPx);
-    p.fontPx = fontPx;
-    p.w = b.w;
-    p.h = b.h;
+    p.fontPx = fontPx; p.w = b.w; p.h = b.h;
   }
 
-  function placeOneOnEdge(p, edge, slotIndex, slotCount, occupied, shape, W, H, scaleFactor) {
+  function placeAssigned(p, slot, occupied, shape, W, H, scaleFactor) {
     const gap = Math.max(0, G.cfg.itemGapMm || 0);
     const edgePad = Math.max(0, G.cfg.edgePaddingMm || 0);
     const halo = gap / 2;
-    const vertexPad = Math.min(edge.length * .14, Math.max(1.5, gap * .75));
-    const usableLength = Math.max(5, edge.length - vertexPad * 2);
-    const slotLength = usableLength / Math.max(1, slotCount);
-    const maxAcross = Math.max(7, Math.min(W, H) * .40);
     const isFixed = (p.kind === "text" && G.cfg.fontSizeMode === "fixed") ||
       (p.kind === "visual" && G.cfg.imageSizeMode === "fixed");
 
-    p.rotation = edge.angle;
-    if (!fitPlacement(p, Math.max(4, slotLength - gap), maxAcross, scaleFactor)) return false;
-
-    const distance = vertexPad + slotLength * (slotIndex + .5);
-    const bx = edge.x1 + edge.ux * distance;
-    const by = edge.y1 + edge.uy * distance;
-    const rounds = isFixed ? 1 : 10;
+    p.rotation = slot.edge.angle;
+    if (!fitPlacement(p, slot.along, slot.across, scaleFactor)) return false;
+    const rounds = isFixed ? 1 : 9;
 
     for (let shrinkRound = 0; shrinkRound < rounds; shrinkRound++) {
       const baseOffset = edgePad + p.h / 2 + halo;
-      const maxPush = Math.max(baseOffset, Math.min(W, H) * .44);
-      for (let push = baseOffset; push <= maxPush; push += .75) {
-        p.x = bx + edge.nx * push;
-        p.y = by + edge.ny * push;
+      const maxPush = Math.max(baseOffset, Math.min(slot.edge.depth * .92, Math.min(W, H) * .46));
+      for (let push = baseOffset; push <= maxPush; push += .6) {
+        p.x = slot.bx + slot.edge.nx * push;
+        p.y = slot.by + slot.edge.ny * push;
         const obb = orientedRect(p, halo);
         if (!obbInsideShape(obb, W, H, shape)) continue;
         if (occupied.some((other) => obbOverlaps(obb, other))) continue;
         occupied.push(obb);
         return true;
       }
-      if (!isFixed) shrinkPlacement(p, .88);
+      if (!isFixed) shrinkPlacement(p, .9);
     }
     return false;
   }
@@ -239,7 +277,8 @@
   function snapshotPlacements(placements) {
     return placements.map((p) => ({
       p, x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation,
-      fontPx: p.fontPx, visualSizeMm: p.visualSizeMm
+      fontPx: p.fontPx, visualSizeMm: p.visualSizeMm,
+      baseFontPx: p.baseFontPx, baseVisualSizeMm: p.baseVisualSizeMm
     }));
   }
 
@@ -247,55 +286,79 @@
     snapshot.forEach((s) => {
       s.p.x = s.x; s.p.y = s.y; s.p.w = s.w; s.p.h = s.h;
       s.p.rotation = s.rotation; s.p.fontPx = s.fontPx; s.p.visualSizeMm = s.visualSizeMm;
+      s.p.baseFontPx = s.baseFontPx; s.p.baseVisualSizeMm = s.baseVisualSizeMm;
     });
   }
 
-  function tryPlaceAlongEdges(card, seed, scaleFactor) {
+  function tryPlaceAlongEdges(card, scaleFactor) {
     const placements = card.placements || [];
     const W = card.widthMm, H = card.heightMm;
-    const edges = shapeEdges(card.shape, W, H, placements.length);
-    const counts = distributeCounts(placements.length, edges);
-    const rng = G.rngFromSeed(`edge-${seed}-${card.index}`);
-    const order = G.shuffle(placements, rng);
+    const slots = buildSlots(card.shape, W, H, placements.length);
+    const assignment = assignPlacementsToSlots(placements, slots);
+    if (assignment.length !== placements.length) return false;
     const occupied = [];
-    let cursor = 0;
 
-    for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex++) {
-      const count = counts[edgeIndex];
-      for (let slot = 0; slot < count; slot++) {
-        const p = order[cursor++];
-        if (!p || !placeOneOnEdge(p, edges[edgeIndex], slot, count, occupied, card.shape, W, H, scaleFactor)) return false;
-      }
+    assignment.sort((a, b) => slotDemand(b.p, b.slot) - slotDemand(a.p, a.slot));
+    for (const pair of assignment) {
+      if (!placeAssigned(pair.p, pair.slot, occupied, card.shape, W, H, scaleFactor)) return false;
     }
     return true;
   }
 
-  function placeAllCardsAlongEdges(cards, seed) {
+  function preflightScale(cards) {
+    let maxDemand = 0;
+    cards.forEach((card) => {
+      const slots = buildSlots(card.shape, card.widthMm, card.heightMm, card.placements?.length || 0);
+      const assignment = assignPlacementsToSlots(card.placements || [], slots);
+      assignment.forEach(({ p, slot }) => { maxDemand = Math.max(maxDemand, slotDemand(p, slot)); });
+    });
+    if (!Number.isFinite(maxDemand) || maxDemand <= 1) return 1;
+    return Math.max(.18, Math.min(1, .96 / maxDemand));
+  }
+
+  function canPlaceAll(cards, snapshots, scale) {
+    for (let i = 0; i < cards.length; i++) {
+      restoreSnapshot(snapshots[i]);
+      if (!tryPlaceAlongEdges(cards[i], scale)) return false;
+    }
+    return true;
+  }
+
+  function placeAllCardsAlongEdges(cards) {
     const snapshots = cards.map((card) => snapshotPlacements(card.placements || []));
-    const scales = [1, .96, .92, .88, .84, .80, .76, .72, .68, .64, .60, .56, .52, .48, .44, .40, .36, .32, .28];
+    let start = preflightScale(cards);
 
-    for (const scale of scales) {
-      let allFit = true;
-      for (let i = 0; i < cards.length; i++) {
-        restoreSnapshot(snapshots[i]);
-        if (!tryPlaceAlongEdges(cards[i], seed, scale)) {
-          allFit = false;
-          break;
-        }
+    // Primero prueba el tamaño calculado a partir de la geometría real de la tarjeta.
+    if (!canPlaceAll(cards, snapshots, start)) {
+      let probe = start;
+      while (probe > .18 && !canPlaceAll(cards, snapshots, probe)) probe *= .90;
+      start = Math.max(.18, probe);
+    }
+
+    // Si cabe, busca por binario el mayor factor común posible entre ese valor y 100%.
+    let low = .18, high = 1, best = 0;
+    if (canPlaceAll(cards, snapshots, start)) {
+      best = start;
+      low = start;
+      for (let i = 0; i < 11; i++) {
+        const mid = (low + high) / 2;
+        if (canPlaceAll(cards, snapshots, mid)) { best = mid; low = mid; }
+        else high = mid;
       }
-      if (!allFit) continue;
+    }
 
+    if (best > 0) {
+      canPlaceAll(cards, snapshots, best);
       cards.forEach((card) => {
         card.edgeFallback = false;
-        card.layoutAdjusted = scale < 1;
-        card.edgeScale = scale;
+        card.layoutAdjusted = best < .995;
+        card.edgeScale = best;
         card.layout = "edge";
       });
+      G.lastEdgeScale = best;
       return true;
     }
 
-    // Solo si ninguna escala uniforme permite la composición conservamos la
-    // distribución segura de base. Se marca explícitamente para la interfaz.
     cards.forEach((card, i) => {
       restoreSnapshot(snapshots[i]);
       card.edgeFallback = true;
@@ -303,6 +366,7 @@
       card.edgeScale = null;
       card.layout = "edge";
     });
+    G.lastEdgeScale = null;
     return false;
   }
 
@@ -318,7 +382,7 @@
       G.cfg.layout = requested;
     }
 
-    placeAllCardsAlongEdges(cards, seed);
+    placeAllCardsAlongEdges(cards);
     return cards;
   };
 })();
