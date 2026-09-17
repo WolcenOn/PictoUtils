@@ -211,9 +211,8 @@
   const originalCurrentPool = G.currentPool;
   if (typeof originalCurrentPool === "function") {
     G.currentPool = function () {
-      const pool = originalCurrentPool();
-      if (pool.length) return pool;
-      if (G.cfg.textureCardContentMode === "texture-only" && G.cfg.textureEnabled && G.textureLibrary.length) {
+      const mode = G.cfg.textureCardContentMode || "layout";
+      if (mode === "texture-only" && G.cfg.textureEnabled && G.textureLibrary.length) {
         return [{
           id: "texture-only-placeholder",
           word: "",
@@ -222,6 +221,9 @@
           source: "texture"
         }];
       }
+      const pool = originalCurrentPool();
+      if (mode === "visual") return pool.filter((source) => !!source.visualUrl);
+      if (mode === "word") return pool.filter((source) => !!String(source.word || "").trim());
       return pool;
     };
   }
