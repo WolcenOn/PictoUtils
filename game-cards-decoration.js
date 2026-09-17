@@ -10,6 +10,8 @@
     textureOffsetXmm: 0,
     textureOffsetYmm: 0,
     textureRotation: 0,
+    textureDistribution: "balanced",
+    textureCardContentMode: "layout",
     overlayTextEnabled: false,
     overlayText: "",
     overlayTextPosition: "center",
@@ -26,8 +28,8 @@
   Object.entries(defaults).forEach(([key, value]) => {
     if (G.cfg[key] === undefined || G.cfg[key] === null) G.cfg[key] = value;
   });
-  G.textureObjectUrl = G.textureObjectUrl || "";
-  G.textureFileName = G.textureFileName || "";
+
+  G.textureLibrary = Array.isArray(G.textureLibrary) ? G.textureLibrary : [];
   G.saveCfg();
 
   function num(value, fallback) {
@@ -35,26 +37,61 @@
     return Number.isFinite(n) ? n : fallback;
   }
 
-  G.setGameTextureFile = function (file) {
-    if (!file || !String(file.type || "").startsWith("image/")) return false;
-    if (G.textureObjectUrl && G.textureObjectUrl.startsWith("blob:")) {
-      try { URL.revokeObjectURL(G.textureObjectUrl); } catch (_) {}
+  function isImageFile(file) {
+    if (!file) return false;
+    if (String(file.type || "").startsWith("image/")) return true;
+    return /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(file.name || "");
+  }
+
+  function fileKey(file) {
+    return `${file.name || ""}|${file.size || 0}|${file.lastModified || 0}`;
+  }
+
+  G.addGameTextureFiles = function (files) {
+    const incoming = Array.from(files || []).filter(isImageFile);
+    if (!incoming.length) return 0;
+    const existing = new Set(G.textureLibrary.map((entry) => entry.key));
+    let added = 0;
+    incoming.forEach((file) => {
+      const key = fileKey(file);
+      if (existing.has(key)) return;
+      existing.add(key);
+      G.textureLibrary.push({
+        id: `texture-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        key,
+        name: file.name || `Textura ${G.textureLibrary.length + 1}`,
+        url: URL.createObjectURL(file)
+      });
+      added++;
+    });
+    if (added) {
+      G.cfg.textureEnabled = true;
+      G.saveCfg();
     }
-    G.textureObjectUrl = URL.createObjectURL(file);
-    G.textureFileName = file.name || "textura";
-    G.cfg.textureEnabled = true;
-    G.saveCfg();
-    return true;
+    return added;
   };
 
-  G.clearGameTexture = function () {
-    if (G.textureObjectUrl && G.textureObjectUrl.startsWith("blob:")) {
-      try { URL.revokeObjectURL(G.textureObjectUrl); } catch (_) {}
-    }
-    G.textureObjectUrl = "";
-    G.textureFileName = "";
+  G.clearGameTextures = function () {
+    G.textureLibrary.forEach((entry) => {
+      if (entry?.url?.startsWith("blob:")) {
+        try { URL.revokeObjectURL(entry.url); } catch (_) {}
+      }
+    });
+    G.textureLibrary = [];
     G.cfg.textureEnabled = false;
     G.saveCfg();
+  };
+
+  G.removeGameTexture = function (id) {
+    const index = G.textureLibrary.findIndex((entry) => entry.id === id);
+    if (index < 0) return false;
+    const [entry] = G.textureLibrary.splice(index, 1);
+    if (entry?.url?.startsWith("blob:")) {
+      try { URL.revokeObjectURL(entry.url); } catch (_) {}
+    }
+    if (!G.textureLibrary.length) G.cfg.textureEnabled = false;
+    G.saveCfg();
+    return true;
   };
 
   function coverOrContainSize(iw, ih, W, H, mode, zoom) {
@@ -73,17 +110,17 @@
     if (ratio >= 1) tw = th * ratio;
     else th = tw / ratio;
     tw = Math.max(4, tw); th = Math.max(4, th);
-    const span = Math.hypot(W, H) * 1.3;
+    const span = Math.hypot(W, H) * 1.4;
     for (let y = -span; y <= span; y += th) {
-      for (let x = -span; x <= span; x += tw) {
-        ctx.drawImage(img, x, y, tw, th);
-      }
+      for (let x = -span; x <= span; x += tw) ctx.drawImage(img, x, y, tw, th);
     }
   }
 
-  G.drawGameCardTexture = async function (ctx, W, H, scale) {
-    if (!G.cfg.textureEnabled || !G.textureObjectUrl || typeof G.loadImage !== "function") return;
-    const img = await G.loadImage(G.textureObjectUrl);
+  G.drawGameCardTexture = async function (ctx, card, W, H, scale) {
+    if (!G.cfg.textureEnabled || typeof G.loadImage !== "function") return;
+    const url = card?.texture?.url || G.textureLibrary[0]?.url || "";
+    if (!url) return;
+    const img = await G.loadImage(url);
     if (!img) return;
 
     const opacity = G.clamp(num(G.cfg.textureOpacityPercent, 100) / 100, 0, 1);
@@ -145,4 +182,69 @@
     ctx.fillText(text, 0, 0, Math.max(10, W * .82));
     ctx.restore();
   };
+
+  function assignTextures(cards, seed) {
+    cards.forEach((card) => { card.texture = null; });
+    if (!G.cfg.textureEnabled || !G.textureLibrary.length) return;
+    const rng = G.rngFromSeed(`textures-${seed}`);
+    const mode = G.cfg.textureDistribution === "random" ? "random" : "balanced";
+    const order = G.shuffle(G.textureLibrary, rng);
+    cards.forEach((card, index) => {
+      const entry = mode === "random"
+        ? G.textureLibrary[Math.floor(rng() * G.textureLibrary.length)]
+        : order[index % order.length];
+      if (entry) card.texture = { id: entry.id, name: entry.name, url: entry.url };
+    });
+  }
+
+  function assignForeground(cards, pool, seed) {
+    const mode = G.cfg.textureCardContentMode || "layout";
+    cards.forEach((card) => { card.textureForegroundSource = null; });
+    if (mode !== "word" && mode !== "visual") return;
+    const candidates = pool.filter((source) => mode === "visual" ? !!source.visualUrl : !!String(source.word || "").trim());
+    if (!candidates.length) return;
+    const rng = G.rngFromSeed(`texture-content-${seed}`);
+    const order = G.shuffle(candidates, rng);
+    cards.forEach((card, index) => {
+      card.textureForegroundSource = order[index % order.length];
+    });
+  }
+
+  const originalCurrentPool = G.currentPool;
+  if (typeof originalCurrentPool === "function") {
+    G.currentPool = function () {
+      const pool = originalCurrentPool();
+      if (pool.length) return pool;
+      if (G.cfg.textureCardContentMode === "texture-only" && G.cfg.textureEnabled && G.textureLibrary.length) {
+        return [{ id: "texture-only-placeholder", word: "", picto: null, visualUrl: "", source: "texture" }];
+      }
+      return pool;
+    };
+  }
+
+  if (typeof G.buildCards === "function") {
+    const previousBuildCards = G.buildCards;
+    G.buildCards = function (pool, seed) {
+      const mode = G.cfg.textureCardContentMode || "layout";
+      const simplified = mode === "texture-only" || mode === "word" || mode === "visual";
+      const oldLayout = G.cfg.layout;
+      const oldPerCard = G.cfg.perCard;
+      let cards;
+      try {
+        if (simplified) {
+          G.cfg.layout = "grid";
+          G.cfg.perCard = 1;
+        }
+        cards = previousBuildCards(pool, seed);
+      } finally {
+        G.cfg.layout = oldLayout;
+        G.cfg.perCard = oldPerCard;
+      }
+      cards = cards || [];
+      assignTextures(cards, seed);
+      assignForeground(cards, pool, seed);
+      cards.forEach((card) => { card.textureContentMode = mode; });
+      return cards;
+    };
+  }
 })();
