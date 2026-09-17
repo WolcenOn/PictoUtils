@@ -264,6 +264,8 @@
       .grid-item.local-card-result > .arrows-container{margin-bottom:8px;}
       .grid-item.local-card-result > .card-media-wrap,
       .grid-item.local-card-result > .word-text{display:none !important;}
+      .grid-item:not(.local-card-result) > .word-text,
+      .grid-item:not(.local-card-result) > .card-media-wrap .media-text{color:#000 !important;}
     `;
     document.head.appendChild(style);
   }
