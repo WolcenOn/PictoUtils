@@ -112,9 +112,52 @@
     if (!note) return;
     const mode = G.byId("gameTextureContentMode")?.value || G.cfg.textureCardContentMode || "layout";
     if (mode === "texture-only") note.textContent = "Cada tarjeta usa una textura como contenido principal. No necesitas introducir palabras ni pictogramas.";
-    else if (mode === "word") note.textContent = "Cada tarjeta recibe una sola palabra centrada. Se reparten las palabras disponibles entre la tanda y se ignora Elementos por tarjeta.";
-    else if (mode === "visual") note.textContent = "Cada tarjeta recibe un solo pictograma o imagen centrado sobre la textura. Se ignora Elementos por tarjeta.";
+    else if (mode === "word") note.textContent = "Cada tarjeta recibe una sola palabra centrada. Se reparten las palabras disponibles entre la tanda; Distribución y Elementos por tarjeta quedan temporalmente desactivados.";
+    else if (mode === "visual") note.textContent = "Cada tarjeta recibe un solo pictograma o imagen centrado sobre la textura; Distribución y Elementos por tarjeta quedan temporalmente desactivados.";
     else note.textContent = "La textura actúa como fondo y se conserva la distribución actual de palabras, pictogramas o imágenes del generador.";
+  }
+
+  function applyContentModeUi(mode) {
+    const layout = G.byId("gameLayout");
+    const perCard = G.byId("gamePerCard");
+    const content = G.byId("gameContent");
+    const simplified = mode === "texture-only" || mode === "word" || mode === "visual";
+
+    if (simplified) {
+      if (!G.cfg.textureSimplifiedActive) {
+        G.cfg.texturePreviousLayout = layout?.value || G.cfg.layout || "random";
+        G.cfg.texturePreviousPerCard = parseInt(perCard?.value || G.cfg.perCard || 6, 10) || 6;
+        G.cfg.texturePreviousContent = content?.value || G.cfg.content || "mixed";
+      }
+      G.cfg.textureSimplifiedActive = true;
+      const forcedContent = mode === "word" ? "text" : mode === "visual" ? "visual" : "mixed";
+      if (layout) layout.value = "grid";
+      if (perCard) perCard.value = "1";
+      if (content) content.value = forcedContent;
+      G.cfg.layout = "grid";
+      G.cfg.perCard = 1;
+      G.cfg.content = forcedContent;
+      if (layout) layout.disabled = true;
+      if (perCard) perCard.disabled = true;
+      if (content) content.disabled = true;
+    } else {
+      if (layout) layout.disabled = false;
+      if (perCard) perCard.disabled = false;
+      if (content) content.disabled = false;
+      if (G.cfg.textureSimplifiedActive) {
+        const oldLayout = G.cfg.texturePreviousLayout || "random";
+        const oldPerCard = parseInt(G.cfg.texturePreviousPerCard, 10) || 6;
+        const oldContent = G.cfg.texturePreviousContent || "mixed";
+        if (layout) layout.value = oldLayout;
+        if (perCard) perCard.value = String(oldPerCard);
+        if (content) content.value = oldContent;
+        G.cfg.layout = oldLayout;
+        G.cfg.perCard = oldPerCard;
+        G.cfg.content = oldContent;
+      }
+      G.cfg.textureSimplifiedActive = false;
+    }
+    G.saveCfg();
   }
 
   function sync() {
@@ -142,6 +185,7 @@
     if (G.byId("gameTextureEnabled")) G.byId("gameTextureEnabled").checked = !!G.cfg.textureEnabled;
     if (G.byId("gameOverlayTextEnabled")) G.byId("gameOverlayTextEnabled").checked = !!G.cfg.overlayTextEnabled;
     renderLibrary();
+    applyContentModeUi(G.cfg.textureCardContentMode || "layout");
     modeNote();
   }
 
@@ -167,6 +211,7 @@
     G.cfg.overlayTextRotation = G.clamp(num(G.byId("gameOverlayTextRotation")?.value, 0), -180, 180);
     G.cfg.overlayTextOffsetXmm = G.clamp(num(G.byId("gameOverlayTextOffsetX")?.value, 0), -100, 100);
     G.cfg.overlayTextOffsetYmm = G.clamp(num(G.byId("gameOverlayTextOffsetY")?.value, 0), -100, 100);
+    applyContentModeUi(G.cfg.textureCardContentMode);
     G.saveCfg();
     modeNote();
   }
