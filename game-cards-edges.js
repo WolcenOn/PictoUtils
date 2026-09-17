@@ -91,9 +91,8 @@
         nx *= -1;
         ny *= -1;
       }
-      // El eje Y local del elemento apunta hacia su "parte de abajo".
-      // Elegimos el ángulo para que ese eje apunte SIEMPRE hacia fuera,
-      // es decir, hacia el borde exterior de la tarjeta.
+      // El eje Y local del texto apunta hacia su parte inferior. Orientamos
+      // cada elemento para que esa parte inferior mire siempre hacia el borde.
       const outwardAngle = normalizeAngle(Math.atan2(nx, -ny) * 180 / Math.PI);
       return {
         x1: a[0], y1: a[1], x2: b[0], y2: b[1],
@@ -143,26 +142,46 @@
   }
 
   function fitPlacement(p, maxAlong, maxAcross, scaleFactor) {
-    const factor = Math.max(.35, Math.min(1, scaleFactor || 1));
+    const factor = Math.max(.25, Math.min(1, scaleFactor || 1));
     const along = Math.max(4, maxAlong);
     const across = Math.max(4, maxAcross);
+    const fixedText = G.cfg.fontSizeMode === "fixed";
+    const fixedImage = G.cfg.imageSizeMode === "fixed";
+
     if (p.kind === "visual") {
       const base = (p.baseVisualSizeMm || p.visualSizeMm || 12) * factor;
-      const size = Math.max(3, Math.min(base, along, across));
+      if (fixedImage) {
+        if (base > along + .001 || base > across + .001) return false;
+        p.visualSizeMm = base;
+        p.w = base;
+        p.h = base;
+        return true;
+      }
+      const size = Math.max(2.5, Math.min(base, along, across));
       p.visualSizeMm = size;
       p.w = size;
       p.h = size;
-      return;
+      return true;
     }
-    let fontPx = Math.max(8, Math.round((p.baseFontPx || p.fontPx || 18) * factor));
+
+    let fontPx = Math.max(7, Math.round((p.baseFontPx || p.fontPx || 18) * factor));
     let bounds = textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", fontPx);
-    while ((bounds.w > along || bounds.h > across) && fontPx > 8) {
+    if (fixedText) {
+      if (bounds.w > along + .001 || bounds.h > across + .001) return false;
+      p.fontPx = fontPx;
+      p.w = bounds.w;
+      p.h = bounds.h;
+      return true;
+    }
+
+    while ((bounds.w > along || bounds.h > across) && fontPx > 7) {
       fontPx--;
       bounds = textBoundsMm(p.source?.word || "", p.fontFamily || "Open Sans", fontPx);
     }
     p.fontPx = fontPx;
     p.w = Math.min(bounds.w, along);
     p.h = Math.min(bounds.h, across);
+    return true;
   }
 
   function shrinkPlacement(p, factor) {
@@ -185,22 +204,25 @@
     const gap = Math.max(0, G.cfg.itemGapMm || 0);
     const edgePad = Math.max(0, G.cfg.edgePaddingMm || 0);
     const halo = gap / 2;
-    const vertexPad = Math.min(edge.length * .16, Math.max(2, gap));
+    const vertexPad = Math.min(edge.length * .14, Math.max(1.5, gap * .75));
     const usableLength = Math.max(5, edge.length - vertexPad * 2);
     const slotLength = usableLength / Math.max(1, slotCount);
-    const maxAcross = Math.max(7, Math.min(W, H) * .36);
+    const maxAcross = Math.max(7, Math.min(W, H) * .40);
+    const isFixed = (p.kind === "text" && G.cfg.fontSizeMode === "fixed") ||
+      (p.kind === "visual" && G.cfg.imageSizeMode === "fixed");
 
     p.rotation = edge.angle;
-    fitPlacement(p, Math.max(4, slotLength - gap), maxAcross, scaleFactor);
+    if (!fitPlacement(p, Math.max(4, slotLength - gap), maxAcross, scaleFactor)) return false;
 
     const distance = vertexPad + slotLength * (slotIndex + .5);
     const bx = edge.x1 + edge.ux * distance;
     const by = edge.y1 + edge.uy * distance;
+    const rounds = isFixed ? 1 : 10;
 
-    for (let shrinkRound = 0; shrinkRound < 10; shrinkRound++) {
+    for (let shrinkRound = 0; shrinkRound < rounds; shrinkRound++) {
       const baseOffset = edgePad + p.h / 2 + halo;
-      const maxPush = Math.max(baseOffset, Math.min(W, H) * .40);
-      for (let push = baseOffset; push <= maxPush; push += 1) {
+      const maxPush = Math.max(baseOffset, Math.min(W, H) * .44);
+      for (let push = baseOffset; push <= maxPush; push += .75) {
         p.x = bx + edge.nx * push;
         p.y = by + edge.ny * push;
         const obb = orientedRect(p, halo);
@@ -209,7 +231,7 @@
         occupied.push(obb);
         return true;
       }
-      shrinkPlacement(p, .88);
+      if (!isFixed) shrinkPlacement(p, .88);
     }
     return false;
   }
@@ -248,25 +270,39 @@
     return true;
   }
 
-  function placeAlongEdges(card, seed) {
-    const snapshot = snapshotPlacements(card.placements || []);
-    const scales = [1, .94, .88, .82, .76, .70, .64, .58, .52, .46];
+  function placeAllCardsAlongEdges(cards, seed) {
+    const snapshots = cards.map((card) => snapshotPlacements(card.placements || []));
+    const scales = [1, .96, .92, .88, .84, .80, .76, .72, .68, .64, .60, .56, .52, .48, .44, .40, .36, .32, .28];
 
     for (const scale of scales) {
-      restoreSnapshot(snapshot);
-      if (tryPlaceAlongEdges(card, seed, scale)) {
+      let allFit = true;
+      for (let i = 0; i < cards.length; i++) {
+        restoreSnapshot(snapshots[i]);
+        if (!tryPlaceAlongEdges(cards[i], seed, scale)) {
+          allFit = false;
+          break;
+        }
+      }
+      if (!allFit) continue;
+
+      cards.forEach((card) => {
         card.edgeFallback = false;
         card.layoutAdjusted = scale < 1;
         card.edgeScale = scale;
         card.layout = "edge";
-        return true;
-      }
+      });
+      return true;
     }
 
-    restoreSnapshot(snapshot);
-    card.edgeFallback = true;
-    card.layoutAdjusted = true;
-    card.layout = "edge";
+    // Solo si ninguna escala uniforme permite la composición conservamos la
+    // distribución segura de base. Se marca explícitamente para la interfaz.
+    cards.forEach((card, i) => {
+      restoreSnapshot(snapshots[i]);
+      card.edgeFallback = true;
+      card.layoutAdjusted = true;
+      card.edgeScale = null;
+      card.layout = "edge";
+    });
     return false;
   }
 
@@ -282,7 +318,7 @@
       G.cfg.layout = requested;
     }
 
-    cards.forEach((card) => placeAlongEdges(card, seed));
+    placeAllCardsAlongEdges(cards, seed);
     return cards;
   };
 })();
