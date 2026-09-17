@@ -54,7 +54,7 @@
     if (generateRow) {
       const row = document.createElement("div");
       row.className = "span-12 game-size-copy-row";
-      row.innerHTML = `<button class="btn-mini" id="gameCopyNormalSizes" type="button">↔ Copiar tamaños de tarjeta normal</button><span class="hint">Los tamaños del modo juego son independientes.</span>`;
+      row.innerHTML = `<button class="btn-mini" id="gameCopyNormalSizes" type="button">↔ Copiar tamaños de tarjeta normal</button><span class="hint">Los tamaños del modo juego son independientes y se ajustan conjuntamente si la tarjeta no ofrece espacio suficiente.</span>`;
       generateRow.before(row);
     }
   }
@@ -126,6 +126,10 @@
 
   function sizingSummary() {
     const parts = [];
+    if (G.cfg.layout === "edge" && Number.isFinite(G.lastEdgeScale)) {
+      const pct = Math.round(G.lastEdgeScale * 100);
+      parts.push(pct < 100 ? `ajuste conjunto a tarjeta ${pct}%` : "encaje a tarjeta 100%");
+    }
     if (G.cfg.fontSizeMode === "fixed" && Number.isFinite(G.lastUniformFontPx)) {
       const requested = numberOr(G.cfg.fontSizePx, G.lastUniformFontPx);
       const applied = G.lastUniformFontPx;
@@ -147,7 +151,7 @@
     const observer = new MutationObserver(() => {
       if (editing) return;
       const summary = sizingSummary();
-      if (!summary || status.textContent.includes("texto fijo") || status.textContent.includes("texto uniforme") || status.textContent.includes("imagen fija") || status.textContent.includes("imagen uniforme")) return;
+      if (!summary || status.textContent.includes("ajuste conjunto a tarjeta") || status.textContent.includes("encaje a tarjeta") || status.textContent.includes("texto fijo") || status.textContent.includes("texto uniforme") || status.textContent.includes("imagen fija") || status.textContent.includes("imagen uniforme")) return;
       if (!status.textContent.includes("semilla")) return;
       editing = true;
       status.textContent += ` · ${summary}`;
