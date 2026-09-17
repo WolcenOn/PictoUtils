@@ -1,12 +1,13 @@
 (function () {
   const LOCAL_SOURCE = "local";
-  const localObjectUrls = new Set();
+  const PDF_PX_PER_MM = 6;
   const MM_TO_PX_FALLBACK = 3;
-  let resultCardCssInjected = false;
+  const localObjectUrls = new Set();
+  let localModeActive = false;
+  let resultCssInjected = false;
+  let renameTimer = null;
 
-  function byId(id) {
-    return document.getElementById(id);
-  }
+  const byId = (id) => document.getElementById(id);
 
   function filenameWithoutExtension(filename) {
     return String(filename || "")
@@ -25,25 +26,6 @@
     return file.webkitRelativePath || file.name || "";
   }
 
-  function revokeLocalObjectUrls() {
-    localObjectUrls.forEach((url) => URL.revokeObjectURL(url));
-    localObjectUrls.clear();
-  }
-
-  function createLocalPicto(file) {
-    const word = filenameWithoutExtension(file.name);
-    const imageUrl = URL.createObjectURL(file);
-    localObjectUrls.add(imageUrl);
-
-    return {
-      source: LOCAL_SOURCE,
-      imageUrl,
-      fileName: file.name,
-      relativePath: file.webkitRelativePath || file.name,
-      keywords: [{ keyword: word }]
-    };
-  }
-
   function isLocalPicto(picto) {
     return !!(picto && typeof picto === "object" && picto.source === LOCAL_SOURCE);
   }
@@ -53,38 +35,26 @@
     return item.pictograms[item.current || 0] || null;
   }
 
-  function hasOnlyLocalResults() {
+  function allCurrentItemsAreLocal() {
     return Array.isArray(items) && items.length > 0 && items.every((item) => isLocalPicto(currentPicto(item)));
   }
 
-  function localImageSizeMm() {
-    const configured = parseFloat(cfg.localImageSize);
-    if (Number.isFinite(configured) && configured > 0) return configured;
-    const fallback = parseFloat(cfg.picSize);
-    return Number.isFinite(fallback) && fallback > 0 ? fallback : 50;
+  function revokeLocalObjectUrls() {
+    localObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    localObjectUrls.clear();
   }
 
-  function mediaSizeMmForItem(item) {
-    const picto = currentPicto(item);
-    return isLocalPicto(picto)
-      ? localImageSizeMm()
-      : Math.max(5, parseFloat(cfg.picSize) || 50);
-  }
-
-  async function withLocalPrintSettings(callback) {
-    if (!hasOnlyLocalResults()) return await callback();
-
-    const previousPicSize = cfg.picSize;
-    const previousArasaacLogo = cfg.showArasaacLogo;
-    cfg.picSize = localImageSizeMm();
-    cfg.showArasaacLogo = false;
-
-    try {
-      return await callback();
-    } finally {
-      cfg.picSize = previousPicSize;
-      cfg.showArasaacLogo = previousArasaacLogo;
-    }
+  function createLocalPicto(file) {
+    const word = filenameWithoutExtension(file.name);
+    const imageUrl = URL.createObjectURL(file);
+    localObjectUrls.add(imageUrl);
+    return {
+      source: LOCAL_SOURCE,
+      imageUrl,
+      fileName: file.name,
+      relativePath: file.webkitRelativePath || file.name,
+      keywords: [{ keyword: word }]
+    };
   }
 
   function updateStatus(message) {
@@ -92,270 +62,344 @@
     if (live) live.textContent = message;
   }
 
-  function injectResultCardCss() {
-    if (resultCardCssInjected || byId("local-result-card-css")) return;
-    resultCardCssInjected = true;
+  function localImageSizeMm() {
+    const n = parseFloat(cfg.localImageSize);
+    if (Number.isFinite(n) && n > 0) return n;
+    return Math.max(5, parseFloat(cfg.picSize) || 50);
+  }
 
+  function cardRadiusMm() {
+    const n = parseFloat(cfg.cardRadiusMm);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
+  function shownWord(item) {
+    const raw = item?.word || "";
+    return typeof displayWord === "function" ? displayWord(raw) : raw;
+  }
+
+  function cardBg(item) {
+    return typeof getItemBgColor === "function" ? getItemBgColor(item) : (cfg.bgColor || "#fff");
+  }
+
+  function cardBorderColor(item) {
+    const picto = currentPicto(item);
+    const word = shownWord(item);
+    return typeof effectiveBorderColor === "function"
+      ? effectiveBorderColor(word, isLocalPicto(picto) ? picto : (typeof picto === "object" ? picto : null), item)
+      : (cfg.borderColor || "#000");
+  }
+
+  function roundedRectPath(ctx, x, y, w, h, radius) {
+    const r = Math.max(0, Math.min(radius || 0, w / 2, h / 2));
+    ctx.beginPath();
+    if (r <= 0.01) {
+      ctx.rect(x, y, w, h);
+      return;
+    }
+    if (typeof ctx.roundRect === "function") {
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function canvasFontFor(sizePx) {
+    if (typeof canvasFont === "function") return canvasFont(Math.round(sizePx));
+    const family = String(cfg.fontFamily || "Open Sans").replace(/"/g, "");
+    return `${parseInt(cfg.fontWeight, 10) || 400} ${Math.round(sizePx)}px "${family}", sans-serif`;
+  }
+
+  function loadImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  async function renderLocalCardCanvas(item, pxPerMm) {
+    const cardWmm = Math.max(10, parseFloat(cfg.cardW) || 60);
+    const cardHmm = Math.max(10, parseFloat(cfg.cardH) || 100);
+    const scale = Math.max(0.5, pxPerMm || PDF_PX_PER_MM);
+    const W = Math.max(1, Math.round(cardWmm * scale));
+    const H = Math.max(1, Math.round(cardHmm * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+
+    const radiusPx = cardRadiusMm() * scale;
+    const borderMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
+    const borderPx = borderMm * scale;
+
+    ctx.clearRect(0, 0, W, H);
+    roundedRectPath(ctx, 0, 0, W, H, radiusPx);
+    ctx.fillStyle = cardBg(item);
+    ctx.fill();
+
+    ctx.save();
+    roundedRectPath(ctx, 0, 0, W, H, radiusPx);
+    ctx.clip();
+
+    const marginPx = Math.max(0, parseFloat(cfg.innerMargin) || 0) * scale;
+    const innerX = marginPx;
+    const innerY = marginPx;
+    const innerW = Math.max(1, W - marginPx * 2);
+    const innerH = Math.max(1, H - marginPx * 2);
+    const picto = currentPicto(item);
+    const isPic = isLocalPicto(picto);
+    const word = shownWord(item);
+    const hasLines = !!cfg.writeLinesMode;
+    const showTextOnly = !!cfg.modeTextOnly || !isPic;
+    const showWord = !cfg.modeImageOnly && !hasLines && !cfg.modeTextOnly && (parseFloat(cfg.fontSize) || 0) > 0;
+
+    const fontMm = Math.max(0, parseFloat(cfg.fontSize) || 0) / MM_TO_PX_FALLBACK;
+    const fontPx = Math.max(8, fontMm * scale);
+    const linesMm = Math.max(0, parseFloat(cfg.linesDistance) || 30) / MM_TO_PX_FALLBACK;
+    const linesPx = Math.max(8, linesMm * scale);
+    const textGapPx = showWord
+      ? (Math.max(0, parseFloat(cfg.textGapMm) || 0) + (cfg.autoTextGap ? 2 : 0)) * scale
+      : 0;
+    const textH = showWord ? Math.round(fontPx * 1.25) : 0;
+    const reservedBottom = hasLines ? (linesPx + 8 * scale) : (showWord ? textGapPx + textH + 6 * scale : 0);
+    const mediaH = Math.max(1, innerH - reservedBottom);
+
+    function fitFont(text, wantedPx, maxWidth) {
+      let s = Math.max(8, wantedPx);
+      ctx.font = canvasFontFor(s);
+      while (ctx.measureText(text).width > maxWidth && s > 8) {
+        s -= 1;
+        ctx.font = canvasFontFor(s);
+      }
+      return s;
+    }
+
+    function drawCenteredText() {
+      const s = fitFont(word, fontPx, innerW);
+      ctx.font = canvasFontFor(s);
+      ctx.fillStyle = "#000";
+      ctx.textBaseline = "middle";
+      const tw = ctx.measureText(word).width;
+      ctx.fillText(word, innerX + (innerW - tw) / 2, innerY + innerH / 2);
+      ctx.textBaseline = "alphabetic";
+    }
+
+    function drawWordBelow() {
+      const s = fitFont(word, fontPx, innerW);
+      ctx.font = canvasFontFor(s);
+      ctx.fillStyle = "#000";
+      const tw = ctx.measureText(word).width;
+      const baseY = innerY + mediaH + textGapPx + Math.round(s * 1.05);
+      ctx.fillText(word, innerX + (innerW - tw) / 2, baseY);
+    }
+
+    function drawLines() {
+      const lineWidth = innerW * 0.9;
+      const x = innerX + (innerW - lineWidth) / 2;
+      const y1 = innerY + mediaH + 6 * scale;
+      const y2 = y1 + linesPx;
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = Math.max(1, 2 * scale / MM_TO_PX_FALLBACK);
+      ctx.beginPath();
+      ctx.moveTo(x, y1); ctx.lineTo(x + lineWidth, y1);
+      ctx.moveTo(x, y2); ctx.lineTo(x + lineWidth, y2);
+      ctx.stroke();
+    }
+
+    if (showTextOnly) {
+      if (hasLines) drawLines();
+      else if (!cfg.modeImageOnly) drawCenteredText();
+    } else {
+      const img = await loadImage(picto.imageUrl || "");
+      if (img) {
+        const boxPx = Math.min(localImageSizeMm() * scale, innerW, mediaH);
+        const ratio = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
+        let w = boxPx;
+        let h = boxPx;
+        if (ratio > 1) h = w / ratio;
+        else w = h * ratio;
+        const x = innerX + (innerW - w) / 2;
+        const y = innerY + (mediaH - h) / 2;
+        ctx.drawImage(img, x, y, w, h);
+      }
+      if (hasLines) drawLines();
+      else if (showWord) drawWordBelow();
+    }
+
+    if (typeof drawTenseMarker === "function") {
+      drawTenseMarker(ctx, item, W, H, borderPx);
+    }
+    ctx.restore();
+
+    if (borderPx > 0.1) {
+      const inset = borderPx / 2;
+      roundedRectPath(ctx, inset, inset, Math.max(0, W - borderPx), Math.max(0, H - borderPx), Math.max(0, radiusPx - inset));
+      ctx.strokeStyle = cardBorderColor(item);
+      ctx.lineWidth = Math.max(1, borderPx);
+      ctx.stroke();
+    }
+
+    return canvas;
+  }
+
+  function injectResultCss() {
+    if (resultCssInjected || byId("local-result-canvas-css")) return;
+    resultCssInjected = true;
     const style = document.createElement("style");
-    style.id = "local-result-card-css";
+    style.id = "local-result-canvas-css";
     style.textContent = `
-      .result-print-surface {
-        position: relative;
-        width: 100%;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        border-radius: 0;
-      }
-      .result-print-surface .card-media-wrap {
-        flex: 1 1 auto;
-        min-height: 0;
-        margin: 0;
-        overflow: hidden;
-        border-radius: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .result-print-surface .pic-image {
-        display: block;
-        width: auto;
-        height: auto;
-        max-width: none;
-        max-height: none;
-        margin: auto;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        object-fit: contain;
-      }
-      .result-print-surface .word-text,
-      .result-print-surface .media-text {
-        color: #000 !important;
-        font-family: var(--card-font);
-        font-weight: var(--card-font-weight);
-      }
-      .result-print-surface .word-text {
-        flex: 0 0 auto;
-        margin-left: 0;
-        margin-right: 0;
-        margin-bottom: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: clip;
-        line-height: 1.15;
-        text-align: center;
-      }
-      .result-print-surface .media-text {
-        min-height: 0;
-        padding: 0;
-        line-height: 1.15;
-      }
-      .grid-item > .arrows-container {
-        margin-bottom: 8px;
-      }
+      .local-result-preview{width:100%;height:auto;display:block;background:transparent;}
+      .grid-item.local-card-result{border-color:transparent !important;background:transparent !important;box-shadow:none;}
+      .grid-item.local-card-result > .arrows-container{margin-bottom:8px;}
+      .grid-item.local-card-result > .card-media-wrap,
+      .grid-item.local-card-result > .word-text{display:none !important;}
     `;
     document.head.appendChild(style);
   }
 
-  function fitResultText(cap, surface, desiredPx) {
-    if (!cap || cap.style.display === "none" || !cap.textContent || cfg.writeLinesMode) return;
-
-    const contentWidth = Math.max(1, surface.clientWidth - (parseFloat(surface.style.paddingLeft) || 0) * 2);
-    const family = cfg.fontFamily || "Open Sans";
-    const weight = cfg.fontWeight || 400;
-    const canvas = fitResultText.canvas || (fitResultText.canvas = document.createElement("canvas"));
-    const ctx = canvas.getContext("2d");
-    ctx.font = `${weight} ${desiredPx}px "${family}", sans-serif`;
-    const measured = ctx.measureText(cap.textContent).width;
-    const fitted = measured > contentWidth ? desiredPx * (contentWidth / measured) : desiredPx;
-    cap.style.fontSize = `${Math.max(6, fitted)}px`;
-  }
-
-  function syncResultCardSurface(el, item) {
-    const surface = el.querySelector(".result-print-surface");
-    if (!surface) return;
-
-    const mediaWrap = surface.querySelector(".card-media-wrap");
-    const img = surface.querySelector(".pic-image");
-    const mediaText = surface.querySelector(".media-text");
-    const cap = surface.querySelector(".word-text");
-    if (!mediaWrap || !cap) return;
-
+  async function redrawResultCanvas(el, item) {
+    const preview = el.querySelector(".local-result-preview");
+    if (!preview) return;
     const cardWmm = Math.max(10, parseFloat(cfg.cardW) || 60);
-    const cardHmm = Math.max(10, parseFloat(cfg.cardH) || 100);
-    const widthPx = Math.max(1, surface.clientWidth || el.clientWidth || 180);
-    const pxPerMm = widthPx / cardWmm;
-    const marginMm = Math.max(0, parseFloat(cfg.innerMargin) || 0);
-    const borderMm = Math.max(0, parseFloat(cfg.borderWidthMm) || 0);
-    const textGapMm = Math.max(0, parseFloat(cfg.textGapMm) || 0) + (cfg.autoTextGap ? 2 : 0);
-    const fontMm = Math.max(0, parseFloat(cfg.fontSize) || 0) / MM_TO_PX_FALLBACK;
-    const desiredFontPx = Math.max(6, fontMm * pxPerMm);
-    const imageBoxPx = Math.max(5, mediaSizeMmForItem(item) * pxPerMm);
-
-    surface.style.height = `${cardHmm * pxPerMm}px`;
-    surface.style.padding = `${marginMm * pxPerMm}px`;
-    surface.style.background = typeof getItemBgColor === "function" ? getItemBgColor(item) : (cfg.bgColor || "#fff");
-    surface.style.borderStyle = "solid";
-    surface.style.borderWidth = `${borderMm * pxPerMm}px`;
-
-    const picto = currentPicto(item);
-    const shownWord = typeof displayWord === "function" ? displayWord(item.word || "") : (item.word || "");
-    surface.style.borderColor = typeof effectiveBorderColor === "function"
-      ? effectiveBorderColor(shownWord, (picto && typeof picto === "object") ? picto : null, item)
-      : (cfg.borderColor || "#000");
-
-    mediaWrap.style.minHeight = "0";
-    mediaWrap.style.flex = "1 1 auto";
-
-    if (img) {
-      img.style.maxWidth = `${imageBoxPx}px`;
-      img.style.maxHeight = `${imageBoxPx}px`;
-    }
-
-    if (mediaText) {
-      mediaText.style.fontSize = `${desiredFontPx}px`;
-      mediaText.style.color = "#000";
-    }
-
-    cap.style.color = "#000";
-    cap.style.marginTop = `${textGapMm * pxPerMm}px`;
-
-    if (cfg.modeImageOnly || (!cfg.writeLinesMode && fontMm <= 0)) {
-      cap.style.display = "none";
-    }
-
-    if (!cfg.modeImageOnly && !cfg.writeLinesMode && cap.style.display !== "none") {
-      cap.style.display = "block";
-      cap.style.fontSize = `${desiredFontPx}px`;
-      requestAnimationFrame(() => fitResultText(cap, surface, desiredFontPx));
-    }
+    const width = Math.max(120, Math.floor(preview.clientWidth || el.clientWidth || 180));
+    const pxPerMm = width / cardWmm;
+    const rendered = await renderLocalCardCanvas(item, pxPerMm);
+    preview.width = rendered.width;
+    preview.height = rendered.height;
+    const ctx = preview.getContext("2d");
+    ctx.clearRect(0, 0, preview.width, preview.height);
+    ctx.drawImage(rendered, 0, 0);
   }
 
-  function decorateResultCard(el, item) {
-    injectResultCardCss();
-    if (!el || el.querySelector(".result-print-surface")) return;
-
-    const nav = el.querySelector(":scope > .arrows-container");
-    const mediaWrap = el.querySelector(":scope > .card-media-wrap");
-    const cap = el.querySelector(":scope > .word-text");
-    if (!mediaWrap || !cap) return;
-
-    const surface = document.createElement("div");
-    surface.className = "result-print-surface";
-    if (nav) nav.insertAdjacentElement("afterend", surface);
-    else el.prepend(surface);
-    surface.append(mediaWrap, cap);
-
-    const resync = () => requestAnimationFrame(() => syncResultCardSurface(el, item));
-    resync();
-
-    const elementObserver = new MutationObserver(resync);
-    elementObserver.observe(el, { attributes: true, attributeFilter: ["style"] });
-
-    const contentObserver = new MutationObserver(resync);
-    contentObserver.observe(cap, { childList: true, characterData: true, subtree: true });
-
-    const img = surface.querySelector(".pic-image");
-    if (img) {
-      const imageObserver = new MutationObserver(resync);
-      imageObserver.observe(img, { attributes: true, attributeFilter: ["src"] });
+  function decorateLocalResult(el, item) {
+    if (!isLocalPicto(currentPicto(item))) return;
+    injectResultCss();
+    el.classList.add("local-card-result");
+    let preview = el.querySelector(".local-result-preview");
+    if (!preview) {
+      preview = document.createElement("canvas");
+      preview.className = "local-result-preview";
+      preview.setAttribute("aria-label", `Vista previa de ${item.word || "imagen"}`);
+      const nav = el.querySelector(":scope > .arrows-container");
+      if (nav) nav.insertAdjacentElement("afterend", preview);
+      else el.prepend(preview);
     }
 
+    const redraw = () => requestAnimationFrame(() => redrawResultCanvas(el, item));
+    redraw();
+
+    const observer = new MutationObserver(redraw);
+    observer.observe(el, { attributes: true, attributeFilter: ["style"] });
     if (typeof ResizeObserver === "function") {
-      const resizeObserver = new ResizeObserver(resync);
-      resizeObserver.observe(surface);
+      const ro = new ResizeObserver(redraw);
+      ro.observe(el);
     }
   }
 
-  function installFaithfulResultRenderer() {
-    if (typeof renderItem !== "function" || renderItem.__localImageEnhanced) return;
-    const originalRenderItem = renderItem;
-
-    const enhanced = function (el, item) {
-      originalRenderItem(el, item);
-      decorateResultCard(el, item);
+  function installResultRenderer() {
+    if (typeof renderItem !== "function" || renderItem.__localCanvasPreview) return;
+    const original = renderItem;
+    const wrapped = function (el, item) {
+      original(el, item);
+      decorateLocalResult(el, item);
     };
-    enhanced.__localImageEnhanced = true;
-    renderItem = enhanced;
+    wrapped.__localCanvasPreview = true;
+    renderItem = wrapped;
   }
 
-  function installPreviewSizeBridge() {
-    if (typeof showPrintPreview !== "function" || showPrintPreview.__localImageSizeAware) return;
-    const originalShowPrintPreview = showPrintPreview;
-
-    const enhancedPreview = async function (...args) {
-      return await withLocalPrintSettings(() => originalShowPrintPreview.apply(this, args));
+  function installBorderColorConsistency() {
+    if (typeof effectiveBorderColor !== "function" || effectiveBorderColor.__wordFallback) return;
+    const original = effectiveBorderColor;
+    const wrapped = function (word, picto, item) {
+      const actualWord = word || item?.word || "";
+      const actualPicto = picto || currentPicto(item);
+      return original(actualWord, actualPicto, item);
     };
-    enhancedPreview.__localImageSizeAware = true;
-    showPrintPreview = enhancedPreview;
+    wrapped.__wordFallback = true;
+    effectiveBorderColor = wrapped;
   }
 
-  function wrapAsyncButtonHandler(id) {
-    const button = byId(id);
-    if (!button || typeof button.onclick !== "function" || button.dataset.localImageWrapped === "1") return;
-    const original = button.onclick;
-    button.dataset.localImageWrapped = "1";
-    button.onclick = async function (event) {
-      return await withLocalPrintSettings(() => original.call(this, event));
-    };
-  }
-
-  function addLocalImageSizeControl() {
-    if (byId("localImageSizeInput")) return;
-    const pictogramSizeInput = byId("picSizeInput");
-    const pictogramControl = pictogramSizeInput?.closest(".control");
-    if (!pictogramSizeInput || !pictogramControl) return;
-
-    if (!(parseFloat(cfg.localImageSize) > 0)) {
-      cfg.localImageSize = Math.max(5, parseFloat(cfg.picSize) || 50);
-      if (typeof saveCfg === "function") saveCfg();
-    }
-
+  function addNumericControl(afterInputId, id, labelText, value, min, onApply) {
+    if (byId(id)) return;
+    const anchor = byId(afterInputId)?.closest(".control");
+    if (!anchor) return;
     const control = document.createElement("div");
     control.className = "control span-6";
-
     const label = document.createElement("label");
-    label.htmlFor = "localImageSizeInput";
-    label.textContent = "Tamaño imagen local (mm)";
-
+    label.htmlFor = id;
+    label.textContent = labelText;
     const input = document.createElement("input");
-    input.id = "localImageSizeInput";
+    input.id = id;
     input.type = "number";
-    input.inputMode = "numeric";
-    input.min = "5";
-    input.value = String(localImageSizeMm());
+    input.inputMode = "decimal";
+    input.min = String(min);
+    input.step = "0.5";
+    input.value = String(value);
+    control.append(label, input);
+    anchor.insertAdjacentElement("afterend", control);
+    input.addEventListener("change", () => onApply(input));
+  }
 
-    const hint = document.createElement("p");
-    hint.className = "hint";
-    hint.textContent = "Solo afecta a las imágenes cargadas desde el equipo; no cambia el tamaño de ARASAAC.";
+  function addConfigControls() {
+    if (!(parseFloat(cfg.localImageSize) > 0)) cfg.localImageSize = Math.max(5, parseFloat(cfg.picSize) || 50);
+    if (!(parseFloat(cfg.cardRadiusMm) >= 0)) cfg.cardRadiusMm = 0;
 
-    control.append(label, input, hint);
-    pictogramControl.insertAdjacentElement("afterend", control);
-
-    const apply = () => {
+    addNumericControl("picSizeInput", "localImageSizeInput", "Tamaño imagen local (mm)", localImageSizeMm(), 5, (input) => {
       cfg.localImageSize = Math.max(5, parseFloat(input.value) || 50);
       input.value = String(cfg.localImageSize);
       if (typeof saveCfg === "function") saveCfg();
       if (typeof renderAll === "function") renderAll();
       if (typeof showPrintPreview === "function") showPrintPreview();
-    };
-
-    input.addEventListener("change", apply);
-    input.addEventListener("input", () => {
-      const value = parseFloat(input.value);
-      if (Number.isFinite(value) && value > 0) cfg.localImageSize = value;
     });
+
+    addNumericControl("borderWidthInput", "cardRadiusInput", "Radio esquinas (mm)", cardRadiusMm(), 0, (input) => {
+      cfg.cardRadiusMm = Math.max(0, parseFloat(input.value) || 0);
+      input.value = String(cfg.cardRadiusMm);
+      if (typeof saveCfg === "function") saveCfg();
+      if (typeof renderAll === "function") renderAll();
+      if (typeof showPrintPreview === "function") showPrintPreview();
+    });
+
+    if (typeof saveCfg === "function") saveCfg();
+  }
+
+  function syncLocalLabelsFromTextarea() {
+    if (!localModeActive || !allCurrentItemsAreLocal()) return;
+    const input = byId("input-words");
+    if (!input) return;
+    const lines = String(input.value).replace(/\r/g, "").split("\n");
+    items.forEach((item, index) => {
+      if (index >= lines.length) return;
+      item.word = lines[index].trim();
+      const picto = currentPicto(item);
+      if (isLocalPicto(picto)) {
+        if (!Array.isArray(picto.keywords)) picto.keywords = [];
+        if (!picto.keywords[0]) picto.keywords[0] = {};
+        picto.keywords[0].keyword = item.word;
+      }
+    });
+    clearTimeout(renameTimer);
+    renameTimer = setTimeout(() => {
+      if (typeof renderAll === "function") renderAll();
+      if (typeof showPrintPreview === "function") showPrintPreview();
+    }, 70);
   }
 
   async function loadLocalImages(fileList) {
     const files = Array.from(fileList || [])
       .filter(isSupportedImage)
-      .sort((a, b) => naturalPath(a).localeCompare(naturalPath(b), undefined, {
-        numeric: true,
-        sensitivity: "base"
-      }));
+      .sort((a, b) => naturalPath(a).localeCompare(naturalPath(b), undefined, { numeric: true, sensitivity: "base" }));
 
     if (!files.length) {
       updateStatus("No se encontraron imágenes compatibles.");
@@ -364,27 +408,23 @@
     }
 
     revokeLocalObjectUrls();
-
+    localModeActive = true;
     const container = byId("grid-container");
     if (!container) return;
-
     items = [];
     container.innerHTML = "";
 
     for (const file of files) {
       const picto = createLocalPicto(file);
-      const word = picto.keywords[0].keyword || "imagen";
       const item = {
         pictograms: [picto],
         current: 0,
-        word,
+        word: picto.keywords[0].keyword || "imagen",
         borderOverride: { mode: "auto" },
         bgOverride: { mode: "global" },
         tenseOverride: "none"
       };
-
       items.push(item);
-
       const cell = document.createElement("div");
       cell.className = "grid-item";
       container.appendChild(cell);
@@ -392,14 +432,159 @@
     }
 
     const wordsInput = byId("input-words");
-    if (wordsInput) {
-      wordsInput.value = items.map((item) => item.word).join(cfg.separator === "commas" ? ", " : " ");
-    }
-
+    if (wordsInput) wordsInput.value = items.map((item) => item.word).join("\n");
     updateStatus(`${items.length} imagen(es) local(es) cargadas.`);
-
     if (typeof updateFitInfo === "function") updateFitInfo();
     if (typeof showPrintPreview === "function") await showPrintPreview();
+  }
+
+  function installPreviewRenderer() {
+    if (typeof showPrintPreview !== "function" || showPrintPreview.__localExactPreview) return;
+    const original = showPrintPreview;
+    const wrapped = async function (...args) {
+      if (!localModeActive || !allCurrentItemsAreLocal()) return await original.apply(this, args);
+      const pv = byId("printPreview");
+      if (!pv || !items.length) return;
+      const cardWmm = Math.max(10, parseFloat(cfg.cardW) || 60);
+      const cardHmm = Math.max(10, parseFloat(cfg.cardH) || 100);
+      const maxDim = Math.max(80, parseFloat(byId("previewSizeRange")?.value) || parseFloat(cfg.previewMax) || 260);
+      const pxPerMm = maxDim / Math.max(cardWmm, cardHmm);
+      const rendered = await renderLocalCardCanvas(items[0], pxPerMm);
+      pv.width = rendered.width;
+      pv.height = rendered.height;
+      pv.getContext("2d").drawImage(rendered, 0, 0);
+      if (byId("previewSizeVal")) byId("previewSizeVal").textContent = String(Math.round(maxDim));
+    };
+    wrapped.__localExactPreview = true;
+    showPrintPreview = wrapped;
+  }
+
+  function pageFormatForPdf() {
+    const page = String(cfg.pageSize || "a4").toLowerCase();
+    if (page === "custom") return [Math.max(20, parseFloat(cfg.customWidth) || 210), Math.max(20, parseFloat(cfg.customHeight) || 297)];
+    return page;
+  }
+
+  async function renderNarrationStrip(text, widthMm, heightMm) {
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(widthMm * PDF_PX_PER_MM));
+    c.height = Math.max(1, Math.round(heightMm * PDF_PX_PER_MM));
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    let size = Math.max(10, (parseFloat(cfg.narrationFontSizePt) || 12) * 0.3528 * PDF_PX_PER_MM);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#000";
+    ctx.font = canvasFontFor(size);
+    while (ctx.measureText(text).width > c.width - 12 && size > 8) {
+      size -= 1;
+      ctx.font = canvasFontFor(size);
+    }
+    ctx.fillText(text, c.width / 2, c.height / 2);
+    return c;
+  }
+
+  async function buildLocalPdfBlob() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: cfg.orientation || "portrait", unit: "mm", format: pageFormatForPdf() });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const cardW = Math.max(10, parseFloat(cfg.cardW) || 60);
+    const cardH = Math.max(10, parseFloat(cfg.cardH) || 100);
+    const gap = Math.max(0, parseFloat(cfg.gap) || 0);
+    const narrationOn = !!cfg.narrationMode;
+    const narrationH = narrationOn ? Math.max(6, ((parseFloat(cfg.narrationFontSizePt) || 12) * 0.3528 * 1.6) + 3) : 0;
+    const cols = Math.max(1, Math.floor((pageW - margin * 2 + gap) / (cardW + gap)));
+    const rows = Math.max(1, Math.floor((pageH - margin * 2 + gap) / (cardH + narrationH + gap)));
+    const perPage = cols * rows;
+    const narrationTokens = narrationOn && String(cfg.narrationText || "").trim()
+      ? String(cfg.narrationText).trim().split(/\s+/)
+      : items.map((item) => shownWord(item));
+
+    for (let i = 0; i < items.length; i++) {
+      const pageIndex = i % perPage;
+      if (i > 0 && pageIndex === 0) pdf.addPage();
+      const col = pageIndex % cols;
+      const row = Math.floor(pageIndex / cols);
+      const x = margin + col * (cardW + gap);
+      const y = margin + row * (cardH + narrationH + gap);
+      const card = await renderLocalCardCanvas(items[i], PDF_PX_PER_MM);
+      pdf.addImage(card.toDataURL("image/png"), "PNG", x, y, cardW, cardH, undefined, "FAST");
+      if (narrationOn && narrationH > 0) {
+        const strip = await renderNarrationStrip(narrationTokens[i] || shownWord(items[i]), cardW, narrationH);
+        pdf.addImage(strip.toDataURL("image/png"), "PNG", x, y + cardH, cardW, narrationH, undefined, "FAST");
+      }
+    }
+    return pdf.output("blob");
+  }
+
+  async function printBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.width = "1px";
+    iframe.style.height = "1px";
+    iframe.style.opacity = "0";
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+      catch { window.open(url, "_blank"); }
+      setTimeout(() => { URL.revokeObjectURL(url); iframe.remove(); }, 30000);
+    };
+  }
+
+  function installOutputHandlers() {
+    const pdfBtn = byId("btn-print-pdf");
+    if (pdfBtn && !pdfBtn.dataset.localExactPrint) {
+      const original = pdfBtn.onclick;
+      pdfBtn.dataset.localExactPrint = "1";
+      pdfBtn.onclick = async function (event) {
+        if (!localModeActive || !allCurrentItemsAreLocal()) return original ? original.call(this, event) : undefined;
+        try {
+          this.disabled = true;
+          const blob = await buildLocalPdfBlob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "tarjetas_imagenes_locales.pdf";
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+        } finally { this.disabled = false; }
+      };
+    }
+
+    const systemBtn = byId("btn-print-system");
+    if (systemBtn && !systemBtn.dataset.localExactPrint) {
+      const original = systemBtn.onclick;
+      systemBtn.dataset.localExactPrint = "1";
+      systemBtn.onclick = async function (event) {
+        if (!localModeActive || !allCurrentItemsAreLocal()) return original ? original.call(this, event) : undefined;
+        try {
+          this.disabled = true;
+          await printBlob(await buildLocalPdfBlob());
+        } finally { this.disabled = false; }
+      };
+    }
+
+    const downloadBtn = byId("btn-download-all");
+    if (downloadBtn && !downloadBtn.dataset.localExactPrint) {
+      const original = downloadBtn.onclick;
+      downloadBtn.dataset.localExactPrint = "1";
+      downloadBtn.onclick = async function (event) {
+        if (!localModeActive || !allCurrentItemsAreLocal()) return original ? original.call(this, event) : undefined;
+        for (const item of items) {
+          const card = await renderLocalCardCanvas(item, PDF_PX_PER_MM);
+          const blob = await new Promise((resolve) => card.toBlob(resolve, "image/png"));
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `${(item.word || "tarjeta").replace(/[\\/:*?"<>|]+/g, "_")}.png`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+      };
+    }
   }
 
   function addLocalImageControls() {
@@ -427,13 +612,11 @@
     imageButton.id = "btn-local-images";
     imageButton.type = "button";
     imageButton.textContent = "🖼️ Cargar imágenes";
-    imageButton.title = "Seleccionar una o varias imágenes del equipo";
 
     const folderButton = document.createElement("button");
     folderButton.id = "btn-local-folder";
     folderButton.type = "button";
     folderButton.textContent = "📁 Cargar carpeta";
-    folderButton.title = "Crear una tarjeta por cada imagen de una carpeta";
 
     searchButton.insertAdjacentElement("afterend", folderButton);
     searchButton.insertAdjacentElement("afterend", imageButton);
@@ -441,18 +624,11 @@
 
     imageButton.addEventListener("click", () => imageInput.click());
     folderButton.addEventListener("click", () => folderInput.click());
+    imageInput.addEventListener("change", async () => { await loadLocalImages(imageInput.files); imageInput.value = ""; });
+    folderInput.addEventListener("change", async () => { await loadLocalImages(folderInput.files); folderInput.value = ""; });
 
-    imageInput.addEventListener("change", async () => {
-      await loadLocalImages(imageInput.files);
-      imageInput.value = "";
-    });
-
-    folderInput.addEventListener("change", async () => {
-      await loadLocalImages(folderInput.files);
-      folderInput.value = "";
-    });
-
-    searchButton.addEventListener("click", revokeLocalObjectUrls, { capture: true });
+    searchButton.addEventListener("click", () => { localModeActive = false; }, { capture: true });
+    byId("input-words")?.addEventListener("input", syncLocalLabelsFromTextarea);
   }
 
   if (typeof pictoUrl === "function") {
@@ -463,21 +639,18 @@
     };
   }
 
-  installFaithfulResultRenderer();
-  installPreviewSizeBridge();
+  installBorderColorConsistency();
+  installResultRenderer();
+  installPreviewRenderer();
   window.addEventListener("beforeunload", revokeLocalObjectUrls);
 
-  function initializeLocalImageEnhancements() {
+  function init() {
     addLocalImageControls();
-    addLocalImageSizeControl();
-    injectResultCardCss();
-    wrapAsyncButtonHandler("btn-print-pdf");
-    wrapAsyncButtonHandler("btn-print-system");
+    addConfigControls();
+    injectResultCss();
+    installOutputHandlers();
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initializeLocalImageEnhancements, { once: true });
-  } else {
-    initializeLocalImageEnhancements();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
+  else init();
 })();
