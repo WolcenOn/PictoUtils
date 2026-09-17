@@ -119,8 +119,25 @@
 
   G.hexVertices = function (w, h, inset) {
     const m = Math.max(0, inset || 0);
-    return [[w*.25+m,m],[w*.75-m,m],[w-m,h*.5],[w*.75-m,h-m],[w*.25+m,h-m],[m,h*.5]];
+    const left = m, right = Math.max(left, w - m), top = m, bottom = Math.max(top, h - m);
+    const ww = Math.max(1, right - left), hh = Math.max(1, bottom - top);
+    return [
+      [left + ww * .25, top], [left + ww * .75, top], [right, top + hh * .5],
+      [left + ww * .75, bottom], [left + ww * .25, bottom], [left, top + hh * .5]
+    ];
   };
+
+  G.octVertices = function (w, h, inset) {
+    const m = Math.max(0, inset || 0);
+    const left = m, right = Math.max(left, w - m), top = m, bottom = Math.max(top, h - m);
+    const ww = Math.max(1, right - left), hh = Math.max(1, bottom - top);
+    const cut = Math.min(ww, hh) * .28;
+    return [
+      [left + cut, top], [right - cut, top], [right, top + cut], [right, bottom - cut],
+      [right - cut, bottom], [left + cut, bottom], [left, bottom - cut], [left, top + cut]
+    ];
+  };
+
   G.pointInPolygon = function (x, y, vertices) {
     let inside = false;
     for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
@@ -129,5 +146,47 @@
       if (hit) inside = !inside;
     }
     return inside;
+  };
+
+  G.pointInEllipse = function (x, y, w, h, inset) {
+    const m = Math.max(0, inset || 0);
+    const rx = Math.max(.001, w / 2 - m);
+    const ry = Math.max(.001, h / 2 - m);
+    const dx = (x - w / 2) / rx;
+    const dy = (y - h / 2) / ry;
+    return dx * dx + dy * dy <= 1;
+  };
+
+  G.rectInsideShape = function (rect, w, h, inset, shape) {
+    const kind = shape || G.cfg.shape || "rect";
+    const m = Math.max(0, inset || 0);
+    if (kind === "rect") {
+      return rect.left >= m && rect.right <= w - m && rect.top >= m && rect.bottom <= h - m;
+    }
+    const corners = [
+      [rect.left, rect.top], [rect.right, rect.top],
+      [rect.right, rect.bottom], [rect.left, rect.bottom]
+    ];
+    if (kind === "oval") return corners.every(([x, y]) => G.pointInEllipse(x, y, w, h, m));
+    const polygon = kind === "oct" ? G.octVertices(w, h, m) : G.hexVertices(w, h, m);
+    return corners.every(([x, y]) => G.pointInPolygon(x, y, polygon));
+  };
+
+  G.safeShapeRect = function (w, h, inset, shape) {
+    const kind = shape || G.cfg.shape || "rect";
+    const m = Math.max(0, inset || 0);
+    const innerW = Math.max(10, w - m * 2);
+    const innerH = Math.max(10, h - m * 2);
+    if (kind === "rect") return { x: m, y: m, w: innerW, h: innerH };
+    if (kind === "oval") {
+      const factor = Math.SQRT1_2;
+      const rw = innerW * factor, rh = innerH * factor;
+      return { x: w / 2 - rw / 2, y: h / 2 - rh / 2, w: rw, h: rh };
+    }
+    if (kind === "oct") {
+      const cut = Math.min(innerW, innerH) * .28;
+      return { x: m + cut * .55, y: m + cut * .55, w: Math.max(10, innerW - cut * 1.1), h: Math.max(10, innerH - cut * 1.1) };
+    }
+    return { x: m + innerW * .25, y: m, w: Math.max(10, innerW * .5), h: innerH };
   };
 })();
