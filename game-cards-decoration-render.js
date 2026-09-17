@@ -51,6 +51,55 @@
     ctx.restore();
   }
 
+  function shownWord(source) {
+    const raw = String(source?.word || "");
+    try { return typeof displayWord === "function" ? displayWord(raw) : raw; }
+    catch (_) { return raw; }
+  }
+
+  function drawForegroundWord(ctx, card, W, H, scale) {
+    const source = card.textureForegroundSource;
+    const word = shownWord(source);
+    if (!word) return;
+    const weight = (typeof cfg !== "undefined" && cfg.fontWeight) ? cfg.fontWeight : 600;
+    const family = String((typeof cfg !== "undefined" && cfg.fontFamily) ? cfg.fontFamily : "Open Sans").replace(/"/g, "");
+    const requested = G.cfg.fontSizeMode === "fixed"
+      ? (parseFloat(G.cfg.fontSizePx) || 48)
+      : (parseFloat(G.cfg.maxFontPx) || 48);
+    let canvasPx = Math.max(8, requested / (G.MM_TO_TEXT_PX || 3) * scale);
+    const maxW = W * .72;
+    const maxH = H * .34;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#000";
+    while (canvasPx > 8) {
+      ctx.font = `${weight} ${canvasPx}px "${family}", sans-serif`;
+      const m = ctx.measureText(word);
+      const h = (m.actualBoundingBoxAscent || canvasPx * .8) + (m.actualBoundingBoxDescent || canvasPx * .25);
+      if (m.width <= maxW && h <= maxH) break;
+      canvasPx -= 1;
+    }
+    ctx.fillText(word, W / 2, H / 2, maxW);
+    ctx.restore();
+  }
+
+  async function drawForegroundVisual(ctx, card, W, H, scale) {
+    const source = card.textureForegroundSource;
+    if (!source?.visualUrl || typeof G.loadImage !== "function") return;
+    const img = await G.loadImage(source.visualUrl);
+    if (!img) return;
+    const requestedMm = G.cfg.imageSizeMode === "fixed"
+      ? (parseFloat(G.cfg.imageSizeMm) || 50)
+      : (parseFloat(G.cfg.maxSizeMm) || 50);
+    const box = Math.max(4, Math.min(requestedMm * scale, W * .62, H * .62));
+    const ratio = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
+    let w = box, h = box;
+    if (ratio > 1) h = w / ratio;
+    else w = h * ratio;
+    ctx.drawImage(img, W / 2 - w / 2, H / 2 - h / 2, w, h);
+  }
+
   async function drawArasaacMark(ctx, W, H) {
     if (typeof getArasaacLogoBitmap !== "function") return;
     try {
@@ -66,6 +115,10 @@
     } catch (_) {}
   }
 
+  function isArasaacSource(source) {
+    return !!source && (source.source === "arasaac" || source.picto?.source === "arasaac");
+  }
+
   G.renderCard = async function (card, scale) {
     const c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(card.widthMm * scale));
@@ -78,6 +131,7 @@
     const borderMm = (typeof cfg !== "undefined" && Number.isFinite(parseFloat(cfg.borderWidthMm))) ? parseFloat(cfg.borderWidthMm) : 1.5;
     const borderPx = Math.max(0, borderMm * scale);
     const strokeInset = borderPx > 0 ? borderPx / 2 + .35 : .35;
+    const contentMode = card.textureContentMode || G.cfg.textureCardContentMode || "layout";
 
     ctx.clearRect(0, 0, W, H);
     cardPath(ctx, W, H, card.shape, radius, strokeInset);
@@ -88,23 +142,33 @@
     cardPath(ctx, W, H, card.shape, radius, strokeInset);
     ctx.clip();
 
-    if (typeof G.drawGameCardTexture === "function") await G.drawGameCardTexture(ctx, W, H, scale);
+    if (typeof G.drawGameCardTexture === "function") await G.drawGameCardTexture(ctx, card, W, H, scale);
     if (typeof G.drawGameOverlayText === "function") G.drawGameOverlayText(ctx, W, H, scale, "behind");
 
-    if (card.layout === "domino") {
-      ctx.save();
-      ctx.strokeStyle = border;
-      ctx.lineWidth = Math.max(1, borderPx * .65);
-      ctx.beginPath();
-      if (card.widthMm >= card.heightMm) { ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); }
-      else { ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); }
-      ctx.stroke();
-      ctx.restore();
+    if (contentMode === "layout") {
+      if (card.layout === "domino") {
+        ctx.save();
+        ctx.strokeStyle = border;
+        ctx.lineWidth = Math.max(1, borderPx * .65);
+        ctx.beginPath();
+        if (card.widthMm >= card.heightMm) { ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); }
+        else { ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); }
+        ctx.stroke();
+        ctx.restore();
+      }
+      for (const p of card.placements || []) await drawPlacement(ctx, p, scale);
+    } else if (contentMode === "word") {
+      drawForegroundWord(ctx, card, W, H, scale);
+    } else if (contentMode === "visual") {
+      await drawForegroundVisual(ctx, card, W, H, scale);
     }
 
-    for (const p of card.placements) await drawPlacement(ctx, p, scale);
     if (typeof G.drawGameOverlayText === "function") G.drawGameOverlayText(ctx, W, H, scale, "above");
-    if (card.placements.some((p) => p.kind === "visual" && p.source.source === "arasaac")) await drawArasaacMark(ctx, W, H);
+
+    const hasArasaac = contentMode === "layout"
+      ? (card.placements || []).some((p) => p.kind === "visual" && isArasaacSource(p.source))
+      : (contentMode === "visual" && isArasaacSource(card.textureForegroundSource));
+    if (hasArasaac) await drawArasaacMark(ctx, W, H);
     ctx.restore();
 
     if (borderPx > 0) {
