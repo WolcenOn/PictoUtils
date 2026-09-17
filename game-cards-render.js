@@ -1,11 +1,22 @@
 (function () {
   const G=window.PictoGame;if(!G)return;
 
+  function polygonPath(ctx,vertices){
+    if(!vertices?.length)return;
+    ctx.moveTo(vertices[0][0],vertices[0][1]);
+    for(let i=1;i<vertices.length;i++)ctx.lineTo(vertices[i][0],vertices[i][1]);
+    ctx.closePath();
+  }
+
   function cardPath(ctx,w,h,shape,radius){
     ctx.beginPath();
-    if(shape==="hex") { const v=G.hexVertices(w,h,0);ctx.moveTo(v[0][0],v[0][1]);for(let i=1;i<v.length;i++)ctx.lineTo(v[i][0],v[i][1]);ctx.closePath();return; }
-    const r=G.clamp(radius||0,0,Math.min(w,h)/2);if(r>0&&typeof ctx.roundRect==="function")ctx.roundRect(0,0,w,h,r);else ctx.rect(0,0,w,h);
+    if(shape==="hex"){polygonPath(ctx,G.hexVertices(w,h,0));return;}
+    if(shape==="oct"){polygonPath(ctx,G.octVertices(w,h,0));return;}
+    if(shape==="oval"){ctx.ellipse(w/2,h/2,w/2,h/2,0,0,Math.PI*2);return;}
+    const r=G.clamp(radius||0,0,Math.min(w,h)/2);
+    if(r>0&&typeof ctx.roundRect==="function")ctx.roundRect(0,0,w,h,r);else ctx.rect(0,0,w,h);
   }
+
   G.loadImage=function(url){
     if(!url)return Promise.resolve(null);if(G.imageCache.has(url))return G.imageCache.get(url);
     const p=new Promise((resolve)=>{const img=new Image();if(!url.startsWith("blob:"))img.crossOrigin="anonymous";img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=url;});
@@ -18,7 +29,7 @@
       const fontPx=(p.fontPx/G.MM_TO_TEXT_PX)*scale,weight=(typeof cfg!=="undefined"&&cfg.fontWeight)?cfg.fontWeight:600;
       ctx.font=`${weight} ${fontPx}px "${p.fontFamily}", sans-serif`;ctx.fillStyle="#000";ctx.textAlign="center";ctx.textBaseline="middle";
       const word=typeof displayWord==="function"?displayWord(p.source.word):p.source.word;ctx.fillText(word,0,0,Math.max(5,p.w*scale));
-    } else {
+    }else{
       const img=await G.loadImage(p.source.visualUrl);if(img){const box=p.visualSizeMm*scale,ratio=img.naturalWidth&&img.naturalHeight?img.naturalWidth/img.naturalHeight:1;let w=box,h=box;if(ratio>1)h=w/ratio;else w=h*ratio;ctx.drawImage(img,-w/2,-h/2,w,h);}
     }
     ctx.restore();
@@ -39,7 +50,9 @@
     if(card.layout==="domino"){ctx.save();ctx.strokeStyle=border;ctx.lineWidth=Math.max(1,borderMm*scale*.65);ctx.beginPath();if(card.widthMm>=card.heightMm){ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);}else{ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);}ctx.stroke();ctx.restore();}
     for(const p of card.placements)await drawPlacement(ctx,p,scale);
     if(card.placements.some((p)=>p.kind==="visual"&&p.source.source==="arasaac"))await drawArasaacMark(ctx,W,H);
-    ctx.restore();if(borderMm>0){ctx.save();cardPath(ctx,W,H,card.shape,radius);ctx.strokeStyle=border;ctx.lineWidth=Math.max(1,borderMm*scale);ctx.stroke();ctx.restore();}return c;
+    ctx.restore();
+    if(borderMm>0){ctx.save();cardPath(ctx,W,H,card.shape,radius);ctx.strokeStyle=border;ctx.lineWidth=Math.max(1,borderMm*scale);ctx.stroke();ctx.restore();}
+    return c;
   };
 
   G.downloadCanvas=function(canvas,filename){canvas.toBlob((blob)=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);},"image/png");};
