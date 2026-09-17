@@ -16,6 +16,7 @@
     "game-cards-range-ui.js",
     "game-cards-workflow-ui.js",
     "game-cards-reorganize-ui.js",
+    "game-cards-workspace-ui.js",
     "game-cards-education-theme.js"
   ];
   let index = 0;
