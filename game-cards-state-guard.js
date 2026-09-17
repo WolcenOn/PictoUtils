@@ -82,11 +82,31 @@
 
   const decoratedOverlay = G.drawGameOverlayText;
   if (typeof decoratedOverlay === "function") {
-    G.drawGameOverlayText = function (...args) {
+    G.drawGameOverlayText = function (ctx, W, H, scale, layer) {
       // El texto decorativo pertenece al flujo de textura. De este modo un
       // texto de una sesión anterior (p. ej. ROCK) no enmascara un juego normal.
       if (!textureFlowActive()) return;
-      return decoratedOverlay.apply(this, args);
+
+      // Si la tarjeta principal es textual, una marca decorativa centrada y
+      // configurada por delante puede tapar por completo la palabra real.
+      // En ese caso se convierte en marca de agua detrás del contenido.
+      const textMainMode = G.cfg.textureCardContentMode === "word" ||
+        (G.cfg.textureCardContentMode === "layout" && G.cfg.content === "text");
+      const centered = (G.cfg.overlayTextPosition || "center") === "center";
+      const above = (G.cfg.overlayTextLayer || "behind") === "above";
+
+      if (textMainMode && centered && above) {
+        if (layer === "above") return;
+        const previousLayer = G.cfg.overlayTextLayer;
+        G.cfg.overlayTextLayer = "behind";
+        try {
+          return decoratedOverlay.call(this, ctx, W, H, scale, "behind");
+        } finally {
+          G.cfg.overlayTextLayer = previousLayer;
+        }
+      }
+
+      return decoratedOverlay.call(this, ctx, W, H, scale, layer);
     };
   }
 
