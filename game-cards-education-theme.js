@@ -3,6 +3,18 @@
 
   document.body.classList.add("ux-education-theme");
 
+  // En el rediseño educativo, el modo automático prioriza una experiencia clara.
+  // Una elección explícita del usuario por el tema oscuro se sigue respetando.
+  try {
+    const preferred = (typeof cfg !== "undefined" && cfg) ? cfg.theme : null;
+    if (!preferred || preferred === "auto") {
+      if (typeof applyTheme === "function") applyTheme("light");
+      else document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (_) {
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+
   const style = document.createElement("style");
   style.id = "ux-education-theme-style";
   style.textContent = `
@@ -12,50 +24,50 @@
        ========================================================= */
 
     body.ux-education-theme{
-      --edu-bg:#edf3ef;
-      --edu-bg-warm:#f7f4ed;
+      --edu-bg:#f3f8f5;
+      --edu-bg-warm:#fffaf1;
       --edu-surface:#ffffff;
-      --edu-surface-soft:#f7faf8;
-      --edu-surface-tint:#edf6f2;
-      --edu-border:#d8e2dc;
-      --edu-border-strong:#bfd1c7;
-      --edu-text:#22342f;
-      --edu-muted:#65756f;
-      --edu-primary:#397f72;
-      --edu-primary-strong:#28685e;
-      --edu-primary-soft:#e2f0ea;
-      --edu-secondary:#d99a46;
-      --edu-secondary-soft:#fbf0de;
-      --edu-focus:#5f9f91;
-      --edu-shadow:0 10px 30px rgba(44,72,63,.08);
-      --edu-shadow-soft:0 4px 16px rgba(44,72,63,.055);
+      --edu-surface-soft:#f8fbf9;
+      --edu-surface-tint:#edf8f4;
+      --edu-border:#dfe9e3;
+      --edu-border-strong:#c8dcd2;
+      --edu-text:#263630;
+      --edu-muted:#708079;
+      --edu-primary:#4e8f84;
+      --edu-primary-strong:#356f66;
+      --edu-primary-soft:#e7f4f0;
+      --edu-secondary:#6f98c7;
+      --edu-secondary-soft:#eef4fb;
+      --edu-focus:#6aa79d;
+      --edu-shadow:0 8px 24px rgba(62,91,81,.055);
+      --edu-shadow-soft:0 3px 12px rgba(62,91,81,.04);
       --edu-radius:18px;
       --edu-radius-sm:12px;
       color:var(--edu-text);
       background:
-        radial-gradient(900px 520px at 4% 0%, rgba(103,160,142,.14), transparent 64%),
-        radial-gradient(780px 520px at 96% 12%, rgba(217,154,70,.09), transparent 62%),
+        radial-gradient(900px 520px at 4% 0%, rgba(118,177,159,.10), transparent 64%),
+        radial-gradient(780px 520px at 96% 12%, rgba(111,152,199,.08), transparent 62%),
         linear-gradient(180deg,var(--edu-bg-warm),var(--edu-bg));
     }
 
     html[data-theme="dark"] body.ux-education-theme{
-      --edu-bg:#17221f;
-      --edu-bg-warm:#1c2522;
-      --edu-surface:#22302c;
-      --edu-surface-soft:#1e2b27;
-      --edu-surface-tint:#263a34;
-      --edu-border:#394c46;
-      --edu-border-strong:#4c655d;
-      --edu-text:#edf5f1;
-      --edu-muted:#a9b9b3;
-      --edu-primary:#74b9a8;
-      --edu-primary-strong:#8bc9ba;
-      --edu-primary-soft:#29453d;
-      --edu-secondary:#e5b56f;
-      --edu-secondary-soft:#443826;
-      --edu-focus:#8bc9ba;
-      --edu-shadow:0 12px 32px rgba(0,0,0,.20);
-      --edu-shadow-soft:0 5px 18px rgba(0,0,0,.14);
+      --edu-bg:#25302d;
+      --edu-bg-warm:#2b3532;
+      --edu-surface:#313e3a;
+      --edu-surface-soft:#2b3733;
+      --edu-surface-tint:#34453f;
+      --edu-border:#465852;
+      --edu-border-strong:#5a7068;
+      --edu-text:#f2f7f4;
+      --edu-muted:#bdc9c4;
+      --edu-primary:#8bc3b6;
+      --edu-primary-strong:#a0d1c5;
+      --edu-primary-soft:#3a5049;
+      --edu-secondary:#9eb9dc;
+      --edu-secondary-soft:#3b4654;
+      --edu-focus:#a0d1c5;
+      --edu-shadow:0 9px 26px rgba(0,0,0,.14);
+      --edu-shadow-soft:0 4px 14px rgba(0,0,0,.10);
       background:
         radial-gradient(900px 520px at 4% 0%, rgba(116,185,168,.10), transparent 64%),
         radial-gradient(780px 520px at 96% 12%, rgba(229,181,111,.07), transparent 62%),
@@ -64,21 +76,21 @@
 
     body.ux-education-theme .app{
       max-width:1440px;
-      background:color-mix(in srgb,var(--edu-surface) 91%,transparent);
+      background:var(--edu-surface);
       border:1px solid var(--edu-border);
       border-radius:24px;
-      box-shadow:0 18px 52px rgba(42,72,62,.11);
+      box-shadow:0 12px 34px rgba(62,91,81,.07);
       overflow:hidden;
     }
 
     html[data-theme="dark"] body.ux-education-theme .app{
-      box-shadow:0 18px 52px rgba(0,0,0,.26);
+      box-shadow:0 12px 34px rgba(0,0,0,.18);
     }
 
     body.ux-education-theme .topbar{
       min-height:76px;
       padding:14px 18px;
-      background:color-mix(in srgb,var(--edu-surface) 96%,transparent);
+      background:var(--edu-surface);
       border-bottom:1px solid var(--edu-border);
       backdrop-filter:none;
     }
@@ -332,7 +344,7 @@
       padding:11px 12px;
       border:1px solid var(--edu-border);
       border-radius:12px;
-      background:var(--edu-secondary-soft);
+      background:color-mix(in srgb,var(--edu-secondary-soft) 70%,var(--edu-surface));
     }
     body.ux-education-theme .ux-game-flow-head strong{color:var(--edu-text)}
     body.ux-education-theme .ux-game-flow-head p{color:var(--edu-muted)}
@@ -391,7 +403,7 @@
     body.ux-education-theme .game-card-preview:hover{
       border-color:var(--edu-border-strong);
       background:var(--edu-surface);
-      box-shadow:0 9px 24px rgba(44,72,63,.10);
+      box-shadow:0 6px 18px rgba(62,91,81,.07);
     }
     body.ux-education-theme .game-card-meta .hint{
       background:var(--edu-surface-soft);
@@ -440,6 +452,45 @@
       background:var(--edu-surface-soft);
       color:var(--edu-text);
       border-color:var(--edu-border);
+    }
+
+    /* Restos del tema original: los llevamos al mismo lenguaje claro y educativo. */
+    body.ux-education-theme .chip{
+      background:var(--edu-secondary-soft);
+      border-color:color-mix(in srgb,var(--edu-secondary) 24%,var(--edu-border));
+      color:var(--edu-text);
+      box-shadow:none;
+    }
+    body.ux-education-theme .group-title{
+      color:var(--edu-primary-strong);
+      letter-spacing:.07em;
+    }
+    body.ux-education-theme fieldset{
+      border-color:var(--edu-border);
+    }
+    body.ux-education-theme .results-accordion-toggle,
+    body.ux-education-theme .ux-game-group-btn{
+      box-shadow:none!important;
+    }
+    body.ux-education-theme .ux-game-group-nav,
+    body.ux-education-theme .ux-game-group-panel{
+      box-shadow:none;
+    }
+    body.ux-education-theme .ux-game-group-panel{
+      background:var(--edu-surface);
+    }
+    body.ux-education-theme .ux-game-group-intro{
+      background:linear-gradient(90deg,var(--edu-primary-soft),transparent 82%);
+      margin:-2px -2px 6px;
+      padding:8px 9px 9px;
+      border-radius:10px 10px 0 0;
+    }
+    body.ux-education-theme input[type="checkbox"]{
+      accent-color:var(--edu-primary);
+    }
+    body.ux-education-theme ::selection{
+      background:var(--edu-primary-soft);
+      color:var(--edu-text);
     }
 
     body.ux-education-theme #appFooter{
