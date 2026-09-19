@@ -23,14 +23,40 @@
     "game-cards-education-theme.js"
   ];
   let index = 0;
+  let finished = false;
+
+  function finishBoot() {
+    if (finished) return;
+    finished = true;
+    const reveal = () => {
+      document.documentElement.classList.remove("ux-booting");
+      window.dispatchEvent(new CustomEvent("picto:ux-ready"));
+    };
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => requestAnimationFrame(reveal));
+    } else {
+      setTimeout(reveal, 0);
+    }
+  }
+
   function loadNext() {
-    if (index >= queue.length) return;
+    if (index >= queue.length) {
+      finishBoot();
+      return;
+    }
     const script = document.createElement("script");
     script.src = queue[index++];
     script.async = false;
     script.onload = loadNext;
-    script.onerror = () => console.error("No se pudo cargar", script.src);
+    script.onerror = () => {
+      console.error("No se pudo cargar", script.src);
+      loadNext();
+    };
     document.head.appendChild(script);
   }
+  // Salvaguarda: nunca dejar la aplicación oculta si un navegador bloquea
+  // inesperadamente algún módulo. Los scripts son locales y normalmente
+  // terminan mucho antes de este límite.
+  setTimeout(finishBoot, 5000);
   loadNext();
 })();
