@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<html data-theme="dark" lang="es">
+<html class="ux-booting" data-theme="light" lang="es">
 <head>
 <meta charset="utf-8"/>
 <title>Pictogramas y Tarjetas - ARASAAC</title>
@@ -10,6 +10,35 @@
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=Lexend:wght@400;600;700&amp;family=Comic+Neue:wght@400;700&amp;family=Montserrat:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Playwrite+ES:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+(function(){
+  try{
+    const stored = JSON.parse(localStorage.getItem("pictocfg") || "{}");
+    const theme = stored && stored.theme === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", theme);
+  }catch(_){
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+})();
+</script>
+<style id="uxBootStyle">
+  html.ux-booting .app,
+  html.ux-booting #appFooter,
+  html.ux-booting .skip-link{
+    opacity:0 !important;
+    visibility:hidden !important;
+  }
+  html:not(.ux-booting) .app,
+  html:not(.ux-booting) #appFooter{
+    opacity:1;
+    visibility:visible;
+    transition:opacity .14s ease;
+  }
+  @media (prefers-reduced-motion: reduce){
+    html:not(.ux-booting) .app,
+    html:not(.ux-booting) #appFooter{transition:none}
+  }
+</style>
 <link href="styles.css" rel="stylesheet"/>
 </head>
 <body>
